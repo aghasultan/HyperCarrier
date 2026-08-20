@@ -129,39 +129,42 @@ class TelephonyDiagnosticsManager(
             // Check via ImsMmTelManager if available on API 30+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 try {
-                    val imsManager = ImsMmTelManager.createForSubscriptionId(subId)
-                    try {
-                        isVoLte = imsManager.isAvailable(
-                            MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
-                            AccessNetworkConstants.TRANSPORT_TYPE_WWAN
-                        )
-                    } catch (_: Throwable) {}
+                    val imsService = context.getSystemService(android.telephony.ims.ImsManager::class.java)
+                    val mmTelManager = imsService?.getImsMmTelManager(subId)
+                    if (mmTelManager != null) {
+                        try {
+                            isVoLte = mmTelManager.isAvailable(
+                                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                                AccessNetworkConstants.TRANSPORT_TYPE_WWAN
+                            )
+                        } catch (_: Throwable) {}
 
-                    try {
-                        isVoWifi = imsManager.isAvailable(
-                            MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
-                            AccessNetworkConstants.TRANSPORT_TYPE_WLAN
-                        )
-                    } catch (_: Throwable) {}
+                        try {
+                            isVoWifi = mmTelManager.isAvailable(
+                                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                                AccessNetworkConstants.TRANSPORT_TYPE_WLAN
+                            )
+                        } catch (_: Throwable) {}
 
-                    try {
-                        isVideo = imsManager.isAvailable(
-                            MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO,
-                            AccessNetworkConstants.TRANSPORT_TYPE_WWAN
-                        )
-                    } catch (_: Throwable) {}
+                        try {
+                            isVideo = mmTelManager.isAvailable(
+                                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO,
+                                AccessNetworkConstants.TRANSPORT_TYPE_WWAN
+                            )
+                        } catch (_: Throwable) {}
 
-                    try {
-                        isUt = imsManager.isAvailable(
-                            MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT,
-                            AccessNetworkConstants.TRANSPORT_TYPE_WWAN
-                        )
-                    } catch (_: Throwable) {}
+                        try {
+                            isUt = mmTelManager.isAvailable(
+                                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT,
+                                AccessNetworkConstants.TRANSPORT_TYPE_WWAN
+                            )
+                        } catch (_: Throwable) {}
 
-                    if (isVoWifi) {
-                        transport = "Wi-Fi"
-                    } else if (isVoLte || isVoNr) {
-                        transport = "Cellular"
+                        if (isVoWifi) {
+                            transport = "Wi-Fi"
+                        } else if (isVoLte || isVoNr) {
+                            transport = "Cellular"
+                        }
                     }
                 } catch (t: Throwable) {
                     Log.d(TAG, "ImsMmTelManager check: ${t.message}")
