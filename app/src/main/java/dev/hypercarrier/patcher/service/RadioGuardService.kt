@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.telephony.SubscriptionManager
@@ -68,7 +69,12 @@ class RadioGuardService : Service() {
                 }
             }
             else -> {
-                startForeground(NOTIFICATION_ID, buildNotification("Monitoring IMS & 5G/4G+ Connectivity"))
+                val notification = buildNotification("Monitoring IMS & 5G/4G+ Connectivity")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
                 isRunning = true
                 startWatchdog()
             }
