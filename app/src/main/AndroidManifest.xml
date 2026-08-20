@@ -17,6 +17,11 @@
         android:name="android.hardware.telephony"
         android:required="false" />
 
+    <!-- Package visibility queries for Shizuku on Android 11+ / 14 / 15 / 17 -->
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
     <application
         android:name=".HyperCarrierApp"
         android:allowBackup="true"
@@ -26,6 +31,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.HyperCarrier"
         tools:targetApi="36">
+
+        <!-- Shizuku Provider -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <!-- Main Dashboard Activity -->
         <activity
