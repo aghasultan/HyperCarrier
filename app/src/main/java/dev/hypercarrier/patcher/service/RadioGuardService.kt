@@ -70,13 +70,36 @@ class RadioGuardService : Service() {
             }
             else -> {
                 val notification = buildNotification("Monitoring IMS & 5G/4G+ Connectivity")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                } else {
-                    startForeground(NOTIFICATION_ID, notification)
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        try {
+                            startForeground(
+                                NOTIFICATION_ID,
+                                notification,
+                                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                            )
+                        } catch (_: Throwable) {
+                            try {
+                                startForeground(
+                                    NOTIFICATION_ID,
+                                    notification,
+                                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                                )
+                            } catch (_: Throwable) {
+                                startForeground(NOTIFICATION_ID, notification)
+                            }
+                        }
+                    } else {
+                        startForeground(NOTIFICATION_ID, notification)
+                    }
+                    isRunning = true
+                    startWatchdog()
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Failed to start foreground service: ${t.message}", t)
+                    isRunning = false
+                    stopSelf()
+                    return START_NOT_STICKY
                 }
-                isRunning = true
-                startWatchdog()
             }
         }
         return START_STICKY

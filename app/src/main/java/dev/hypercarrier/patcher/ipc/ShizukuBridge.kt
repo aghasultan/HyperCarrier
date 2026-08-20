@@ -230,6 +230,23 @@ object ShizukuBridge {
     }
 
     /**
+     * Directly provisions IMS capabilities (VoLTE, VoWiFi, VoNR, Video) via privileged service.
+     */
+    suspend fun setImsProvisioning(subId: Int, enableVoLte: Boolean = true, enableVoWifi: Boolean = true, enableVoNr: Boolean = true): Result<Unit> = withContext(Dispatchers.IO) {
+        val service = privilegedService ?: return@withContext Result.failure(
+            IllegalStateException("Privileged service is not connected. Please authorize Shizuku.")
+        )
+
+        try {
+            service.setImsProvisioning(subId, enableVoLte, enableVoWifi, enableVoNr)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to set IMS provisioning: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
      * Fetches current active CarrierConfig bundle for the given subscription ID.
      */
     suspend fun getCarrierConfig(subId: Int): Result<PersistableBundle> = withContext(Dispatchers.IO) {

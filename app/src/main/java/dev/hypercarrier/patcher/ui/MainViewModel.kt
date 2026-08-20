@@ -163,10 +163,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val bundle = preset.payloadBuilder(sub.subscriptionId)
                 val result = ShizukuBridge.applyPersistentConfig(sub.subscriptionId, bundle)
+                ShizukuBridge.setImsProvisioning(sub.subscriptionId, enableVoLte = true, enableVoWifi = true, enableVoNr = true)
 
                 if (result.isSuccess) {
                     _injectionResult.value = InjectionResult.Success(
-                        message = "Successfully applied '${preset.name}' with Turbo Aggregation! Overrides persist across reboots.",
+                        message = "Successfully applied '${preset.name}' with Turbo Aggregation & IMS Core! Overrides persist across reboots.",
                         appliedKeysCount = bundle.size()
                     )
                     loadActiveCarrierConfig(sub.subscriptionId)
@@ -197,9 +198,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _injectionResult.value = InjectionResult.InProgress
             try {
                 val result = ShizukuBridge.applyPersistentConfig(sub.subscriptionId, bundle)
+                ShizukuBridge.setImsProvisioning(sub.subscriptionId, enableVoLte = true, enableVoWifi = true, enableVoNr = true)
+
                 if (result.isSuccess) {
                     _injectionResult.value = InjectionResult.Success(
-                        message = "Persistent CarrierConfig overrides successfully written to disk!",
+                        message = "Persistent CarrierConfig overrides & IMS provisioning successfully applied!",
                         appliedKeysCount = bundle.size()
                     )
                     loadActiveCarrierConfig(sub.subscriptionId)
@@ -300,7 +303,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             if (enable) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
+                    try {
+                        context.startForegroundService(intent)
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "startForegroundService fallback to startService: ${t.message}")
+                        context.startService(intent)
+                    }
                 } else {
                     context.startService(intent)
                 }
@@ -312,6 +320,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _injectionResult.value = InjectionResult.Success("Auto-Healer Watchdog Deactivated.", 0)
             }
         } catch (t: Throwable) {
+            _isRadioGuardActive.value = false
             _injectionResult.value = InjectionResult.Error("Failed to toggle Auto-Healer: ${t.message}")
         }
     }

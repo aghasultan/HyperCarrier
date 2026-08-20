@@ -5,7 +5,7 @@ import android.os.PersistableBundle;
 /**
  * Privileged carrier configuration and telephony service running under UID 2000 (Shell) via Shizuku.
  * Provides root-free persistent CarrierConfig overrides directly written to disk,
- * low-level network mode enforcement, and radio power cycling.
+ * low-level network mode enforcement, IMS provisioning, and radio power cycling.
  */
 interface IPrivilegedCarrierService {
     /**
@@ -23,6 +23,11 @@ interface IPrivilegedCarrierService {
      * Retrieves the active CarrierConfig bundle for the given subscription ID.
      */
     PersistableBundle getCarrierConfig(int subId);
+
+    /**
+     * Directly provisions IMS capabilities (VoLTE, VoWiFi, VoNR, Video) via ITelephony/IImsConfig.
+     */
+    void setImsProvisioning(int subId, boolean enableVoLte, boolean enableVoWifi, boolean enableVoNr);
 
     /**
      * Queries real-time IMS registration state for the given subscription ID.

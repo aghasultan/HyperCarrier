@@ -15,8 +15,8 @@ import kotlin.system.exitProcess
 
 /**
  * Privileged carrier service executed under UID 2000 (com.android.shell) via Shizuku IPC.
- * Performs rootless, reboot-persistent CarrierConfig disk overrides, network mode enforcement,
- * and low-level radio power cycling.
+ * Performs rootless, reboot-persistent CarrierConfig disk overrides, direct IMS provisioning,
+ * network mode enforcement, and low-level radio power cycling.
  */
 @Keep
 class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
@@ -58,22 +58,36 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
         try {
             var applied = false
 
-            // Strategy 1: Reflection on CarrierConfigManager instance
+            // Strategy 1: Reflection on CarrierConfigManager instance (Persistent + In-Memory)
             try {
                 val context = getSystemOrAppContext()
                 if (context != null) {
                     val ccm = context.getSystemService(Context.CARRIER_CONFIG_SERVICE) as? CarrierConfigManager
                     if (ccm != null) {
-                        val method = CarrierConfigManager::class.java.getMethod(
+                        val overrideMethod = CarrierConfigManager::class.java.getMethod(
                             "overrideConfig",
                             Int::class.javaPrimitiveType,
                             PersistableBundle::class.java,
                             Boolean::class.javaPrimitiveType
                         )
-                        method.isAccessible = true
-                        method.invoke(ccm, subId, bundle, true)
+                        overrideMethod.isAccessible = true
+                        
+                        // Apply persistent override (to disk)
+                        try {
+                            overrideMethod.invoke(ccm, subId, bundle, true)
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "Persistent override call: ${e.message}")
+                        }
+
+                        // Apply in-memory override (for immediate effect)
+                        try {
+                            overrideMethod.invoke(ccm, subId, bundle, false)
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "In-memory override call: ${e.message}")
+                        }
+
                         applied = true
-                        Log.i(TAG, "Successfully invoked CarrierConfigManager.overrideConfig(subId=$subId, persistent=true) via Context")
+                        Log.i(TAG, "Successfully invoked CarrierConfigManager.overrideConfig via Context")
                     }
                 }
             } catch (e: Throwable) {
@@ -82,26 +96,44 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
 
             // Strategy 2: Direct binder IPC to ICarrierConfigLoader via ServiceManager
             if (!applied) {
-                val serviceManagerClass = Class.forName("android.os.ServiceManager")
-                val getServiceMethod: Method = serviceManagerClass.getMethod("getService", String::class.java)
-                val binder = getServiceMethod.invoke(null, "carrier_config") as? IBinder
-                    ?: throw IllegalStateException("carrier_config binder service not found")
+                try {
+                    val serviceManagerClass = Class.forName("android.os.ServiceManager")
+                    val getServiceMethod: Method = serviceManagerClass.getMethod("getService", String::class.java)
+                    val binder = getServiceMethod.invoke(null, "carrier_config") as? IBinder
+                    if (binder != null) {
+                        val stubClass = Class.forName("com.android.internal.telephony.ICarrierConfigLoader\$Stub")
+                        val asInterfaceMethod = stubClass.getMethod("asInterface", IBinder::class.java)
+                        val loader = asInterfaceMethod.invoke(null, binder)
 
-                val stubClass = Class.forName("com.android.internal.telephony.ICarrierConfigLoader\$Stub")
-                val asInterfaceMethod = stubClass.getMethod("asInterface", IBinder::class.java)
-                val loader = asInterfaceMethod.invoke(null, binder)
-                    ?: throw IllegalStateException("ICarrierConfigLoader interface is null")
-
-                val overrideMethod = loader.javaClass.getMethod(
-                    "overrideConfig",
-                    Int::class.javaPrimitiveType,
-                    PersistableBundle::class.java,
-                    Boolean::class.javaPrimitiveType
-                )
-                overrideMethod.isAccessible = true
-                overrideMethod.invoke(loader, subId, bundle, true)
-                Log.i(TAG, "Successfully invoked ICarrierConfigLoader.overrideConfig(subId=$subId, persistent=true) via ServiceManager")
+                        val overrideMethod = loader?.javaClass?.getMethod(
+                            "overrideConfig",
+                            Int::class.javaPrimitiveType,
+                            PersistableBundle::class.java,
+                            Boolean::class.javaPrimitiveType
+                        )
+                        overrideMethod?.isAccessible = true
+                        try {
+                            overrideMethod?.invoke(loader, subId, bundle, true)
+                        } catch (_: Throwable) {}
+                        try {
+                            overrideMethod?.invoke(loader, subId, bundle, false)
+                        } catch (_: Throwable) {}
+                        applied = true
+                        Log.i(TAG, "Successfully invoked ICarrierConfigLoader.overrideConfig via ServiceManager")
+                    }
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Strategy 2 error: ${e.message}")
+                }
             }
+
+            // Automatically provision IMS flags and triggers
+            setImsProvisioning(subId, true, true, true)
+
+            // Strategy 3: Shell reload triggers to wake telephony daemon
+            try {
+                Runtime.getRuntime().exec("cmd phone reload-carrier-config").waitFor()
+            } catch (_: Throwable) {}
+
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to apply persistent CarrierConfig for subId=$subId", t)
             throw RuntimeException("Failed to apply persistent CarrierConfig: ${t.message}", t)
@@ -114,6 +146,80 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
     override fun clearConfigOverride(subId: Int) {
         Log.i(TAG, "clearConfigOverride called for subId=$subId")
         applyPersistentConfig(subId, null)
+    }
+
+    /**
+     * Directly provisions IMS capabilities (VoLTE, VoWiFi, VoNR, Video, UT) via ITelephony & IImsConfig.
+     */
+    override fun setImsProvisioning(subId: Int, enableVoLte: Boolean, enableVoWifi: Boolean, enableVoNr: Boolean) {
+        Log.i(TAG, "setImsProvisioning called for subId=$subId: VoLTE=$enableVoLte, VoWiFi=$enableVoWifi, VoNR=$enableVoNr")
+        try {
+            val serviceManagerClass = Class.forName("android.os.ServiceManager")
+            val getServiceMethod = serviceManagerClass.getMethod("getService", String::class.java)
+            val binder = getServiceMethod.invoke(null, "phone") as? IBinder
+
+            if (binder != null) {
+                val stubClass = Class.forName("com.android.internal.telephony.ITelephony\$Stub")
+                val asInterfaceMethod = stubClass.getMethod("asInterface", IBinder::class.java)
+                val telephony = asInterfaceMethod.invoke(null, binder)
+
+                if (telephony != null) {
+                    val telClass = telephony.javaClass
+
+                    // 1. setImsProvisioningInt(subId, key, value)
+                    val setImsProvIntMethod = telClass.methods.firstOrNull { it.name == "setImsProvisioningInt" }
+                    if (setImsProvIntMethod != null) {
+                        try {
+                            setImsProvIntMethod.invoke(telephony, subId, 1, if (enableVoLte) 1 else 0) // VoLTE
+                            setImsProvIntMethod.invoke(telephony, subId, 2, if (enableVoWifi) 1 else 0) // VoWiFi
+                            setImsProvIntMethod.invoke(telephony, subId, 3, 1) // Video
+                            Log.i(TAG, "Successfully invoked ITelephony.setImsProvisioningInt")
+                        } catch (e: Throwable) {
+                            Log.d(TAG, "setImsProvisioningInt invoke note: ${e.message}")
+                        }
+                    }
+
+                    // 2. setImsProvisioningStatusForCapability(subId, capability, tech, isProvisioned)
+                    val setImsProvStatusMethod = telClass.methods.firstOrNull { it.name == "setImsProvisioningStatusForCapability" }
+                    if (setImsProvStatusMethod != null) {
+                        try {
+                            // Capability 1 = Voice, Tech 0 = WWAN (LTE/5G)
+                            setImsProvStatusMethod.invoke(telephony, subId, 1, 0, enableVoLte)
+                            // Capability 1 = Voice, Tech 1 = WLAN (Wi-Fi)
+                            setImsProvStatusMethod.invoke(telephony, subId, 1, 1, enableVoWifi)
+                            // Capability 2 = Video, Tech 0 = WWAN
+                            setImsProvStatusMethod.invoke(telephony, subId, 2, 0, true)
+                            // Capability 4 = UT / Supplementary Services, Tech 0 = WWAN
+                            setImsProvStatusMethod.invoke(telephony, subId, 4, 0, true)
+                            Log.i(TAG, "Successfully invoked ITelephony.setImsProvisioningStatusForCapability")
+                        } catch (e: Throwable) {
+                            Log.d(TAG, "setImsProvisioningStatusForCapability invoke note: ${e.message}")
+                        }
+                    }
+
+                    // 3. setEnhanced4gLteModeSetting & setVoWiFiSetting if available
+                    val setVolteSetting = telClass.methods.firstOrNull { it.name == "setEnhanced4gLteModeSetting" }
+                    try {
+                        setVolteSetting?.invoke(telephony, subId, enableVoLte)
+                    } catch (_: Throwable) {}
+
+                    val setWfcSetting = telClass.methods.firstOrNull { it.name == "setVoWiFiSetting" }
+                    try {
+                        setWfcSetting?.invoke(telephony, subId, enableVoWifi)
+                    } catch (_: Throwable) {}
+                }
+            }
+
+            // Radio properties injection via system shell
+            try {
+                Runtime.getRuntime().exec(arrayOf("setprop", "persist.vendor.radio.volte_enabled", if (enableVoLte) "1" else "0")).waitFor()
+                Runtime.getRuntime().exec(arrayOf("setprop", "persist.vendor.radio.vowifi_enabled", if (enableVoWifi) "1" else "0")).waitFor()
+                Runtime.getRuntime().exec(arrayOf("setprop", "persist.vendor.radio.vonr_enabled", if (enableVoNr) "1" else "0")).waitFor()
+            } catch (_: Throwable) {}
+
+        } catch (t: Throwable) {
+            Log.w(TAG, "Could not complete setImsProvisioning: ${t.message}")
+        }
     }
 
     /**

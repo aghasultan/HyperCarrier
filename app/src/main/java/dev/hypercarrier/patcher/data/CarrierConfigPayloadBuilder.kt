@@ -3,8 +3,8 @@ package dev.hypercarrier.patcher.data
 import android.os.PersistableBundle
 
 /**
- * Android 17 / Pixel 9 CarrierConfig Payload Builder with Extreme Turbo Carrier Aggregation.
- * Synthesizes persistent disk-level overrides with the exhaustive telephony key matrix.
+ * Android 17 / Pixel 9 CarrierConfig Payload Builder with Extreme Turbo Carrier Aggregation
+ * and exhaustive system settings toggle unlock matrix.
  */
 class CarrierConfigPayloadBuilder {
 
@@ -17,9 +17,20 @@ class CarrierConfigPayloadBuilder {
         const val KEY_NR_TIMERS_RESET_ON_VOICE_QOS_BOOL = "nr_timers_reset_on_voice_qos_bool"
         const val KEY_5G_ICON_CONFIGURATION_STRING = "5g_icon_configuration_string"
         const val KEY_5G_ICON_DISPLAY_GRACE_PERIOD_SEC_INT = "5g_icon_display_grace_period_sec_int"
+        const val KEY_5G_ICON_DISPLAY_SECONDARY_GRACE_PERIOD_SEC_INT = "5g_icon_display_secondary_grace_period_sec_int"
         const val KEY_UNMETERED_NR_NSA_BOOL = "unmetered_nr_nsa_bool"
         const val KEY_UNMETERED_NR_SA_BOOL = "unmetered_nr_sa_bool"
         const val KEY_BANDWIDTH_STRING_ARRAY = "bandwidth_string_array"
+
+        // --- System Settings Visibility & Menu Unlocks ---
+        const val KEY_HIDE_PREFERRED_NETWORK_TYPE_BOOL = "hide_preferred_network_type_bool"
+        const val KEY_HIDE_CARRIER_NETWORK_SETTINGS_BOOL = "hide_carrier_network_settings_bool"
+        const val KEY_HIDE_ENHANCED_4G_LTE_BOOL = "hide_enhanced_4g_lte_bool"
+        const val KEY_HIDE_ENABLE_2G_BOOL = "hide_enable_2g_bool"
+        const val KEY_WORLD_MODE_ENABLED_BOOL = "world_mode_enabled_bool"
+        const val KEY_CARRIER_SETTINGS_ENABLE_BOOL = "carrier_settings_enable_bool"
+        const val KEY_SHOW_4G_FOR_LTE_DATA_ICON_BOOL = "show_4g_for_lte_data_icon_bool"
+        const val KEY_SUPPORT_TDSCDMA_BOOL = "support_tdscdma_bool"
 
         // --- Carrier Aggregation & Zero-Delay Data Keys ---
         const val KEY_CARRIER_DATA_CALL_APN_DELAY_DEFAULT_LONG = "carrier_data_call_apn_delay_default_long"
@@ -30,6 +41,9 @@ class CarrierConfigPayloadBuilder {
 
         // --- VoLTE & IMS Core Keys ---
         const val KEY_CARRIER_VOLTE_AVAILABLE_BOOL = "carrier_volte_available_bool"
+        const val KEY_CARRIER_VOLTE_PROVISIONED_BOOL = "carrier_volte_provisioned_bool"
+        const val KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL = "carrier_volte_provisioning_required_bool"
+        const val KEY_CARRIER_VOLTE_TTY_SUPPORTED_BOOL = "carrier_volte_tty_supported_bool"
         const val KEY_EDITABLE_ENHANCED_4G_LTE_BOOL = "editable_enhanced_4g_lte_bool"
         const val KEY_ENHANCED_4G_LTE_ON_BY_DEFAULT_BOOL = "enhanced_4g_lte_on_by_default_bool"
         const val KEY_CARRIER_CONFIG_APPLIED_BOOL = "carrier_config_applied_bool"
@@ -37,17 +51,11 @@ class CarrierConfigPayloadBuilder {
         const val KEY_CARRIER_SUPPORTS_CALLER_ID_VERTICAL_SERVICE_CODES_BOOL = "carrier_supports_caller_id_vertical_service_codes_bool"
         const val KEY_CARRIER_ALLOW_TURNOFF_IMS_BOOL = "carrier_allow_turnoff_ims_bool"
         const val KEY_CARRIER_VOLTE_OVERRIDE_WFC_PROVISIONING_BOOL = "carrier_volte_override_wfc_provisioning_bool"
-        const val KEY_CARRIER_VOLTE_PROVISIONED_BOOL = "carrier_volte_provisioned_bool"
-        const val KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL = "carrier_volte_provisioning_required_bool"
         const val KEY_CARRIER_SUPPORTS_SS_OVER_UT_BOOL = "carrier_supports_ss_over_ut_bool"
         const val KEY_CARRIER_UT_PROVISIONED_BOOL = "carrier_ut_provisioned_bool"
         const val KEY_CARRIER_UT_PROVISIONING_REQUIRED_BOOL = "carrier_ut_provisioning_required_bool"
         const val KEY_CARRIER_PROMOTE_WFC_ON_CALL_FAIL_BOOL = "carrier_promote_wfc_on_call_fail_bool"
         const val KEY_CARRIER_IMS_GBA_REQUIRED_BOOL = "carrier_ims_gba_required_bool"
-        const val KEY_SUPPORT_TDSCDMA_BOOL = "support_tdscdma_bool"
-        const val KEY_WORLD_MODE_ENABLED_BOOL = "world_mode_enabled_bool"
-        const val KEY_HIDE_CARRIER_NETWORK_SETTINGS_BOOL = "hide_carrier_network_settings_bool"
-        const val KEY_HIDE_ENABLE_2G_BOOL = "hide_enable_2g_bool"
 
         // --- VoWiFi / WFC & Cross-SIM Keys ---
         const val KEY_CARRIER_WFC_IMS_AVAILABLE_BOOL = "carrier_wfc_ims_available_bool"
@@ -86,7 +94,8 @@ class CarrierConfigPayloadBuilder {
             "connected_mmwave:5G_PLUS,connected:5G,not_restricted_rrc_idle:5G,not_restricted_rrc_con:5G"
 
         /**
-         * Creates a comprehensive, fully unlocked CarrierConfig bundle with Turbo Aggregation.
+         * Creates a comprehensive, fully unlocked CarrierConfig bundle with Turbo Aggregation
+         * and all Android Settings toggles unhidden.
          */
         fun buildUniversalUltraUnlockBundle(): PersistableBundle {
             return CarrierConfigPayloadBuilder()
@@ -127,7 +136,7 @@ class CarrierConfigPayloadBuilder {
     private val bundle = PersistableBundle()
 
     /**
-     * Configures 5G NR NSA & SA parameters.
+     * Configures 5G NR NSA & SA parameters and unlocks 5G in settings.
      */
     fun enable5gNr(
         enableSa: Boolean = true,
@@ -144,8 +153,10 @@ class CarrierConfigPayloadBuilder {
         bundle.putInt(KEY_CARRIER_NR_AVAILABILITY_INT, nrAvailability)
         bundle.putString(KEY_5G_ICON_CONFIGURATION_STRING, iconConfig)
         bundle.putInt(KEY_5G_ICON_DISPLAY_GRACE_PERIOD_SEC_INT, gracePeriodSec)
+        bundle.putInt(KEY_5G_ICON_DISPLAY_SECONDARY_GRACE_PERIOD_SEC_INT, gracePeriodSec)
         bundle.putBoolean(KEY_UNMETERED_NR_NSA_BOOL, true)
         bundle.putBoolean(KEY_UNMETERED_NR_SA_BOOL, true)
+        bundle.putBoolean("4g_only_bool", false)
         return this
     }
 
@@ -166,7 +177,7 @@ class CarrierConfigPayloadBuilder {
     }
 
     /**
-     * Configures Voice over New Radio (VoNR).
+     * Configures Voice over New Radio (VoNR) and exposes VoNR toggle in Android Settings.
      */
     fun enableVoNr(
         enabled: Boolean = true,
@@ -180,7 +191,7 @@ class CarrierConfigPayloadBuilder {
     }
 
     /**
-     * Configures Voice over LTE (VoLTE) and IMS Engine.
+     * Configures Voice over LTE (VoLTE) and IMS Engine, and unhides toggles in Android Settings.
      */
     fun enableVoLte(
         available: Boolean = true,
@@ -191,7 +202,9 @@ class CarrierConfigPayloadBuilder {
     ): CarrierConfigPayloadBuilder {
         bundle.putBoolean(KEY_CARRIER_VOLTE_AVAILABLE_BOOL, available)
         bundle.putBoolean(KEY_EDITABLE_ENHANCED_4G_LTE_BOOL, editable)
+        bundle.putBoolean(KEY_HIDE_ENHANCED_4G_LTE_BOOL, false)
         bundle.putBoolean(KEY_ENHANCED_4G_LTE_ON_BY_DEFAULT_BOOL, onByDefault)
+        bundle.putBoolean(KEY_CARRIER_VOLTE_TTY_SUPPORTED_BOOL, true)
         bundle.putBoolean(KEY_CARRIER_CONFIG_APPLIED_BOOL, true)
         bundle.putBoolean(KEY_SHOW_IMS_REGISTRATION_STATUS_BOOL, true)
         bundle.putBoolean(KEY_CARRIER_SUPPORTS_CALLER_ID_VERTICAL_SERVICE_CODES_BOOL, supportsCallerId)
@@ -210,7 +223,7 @@ class CarrierConfigPayloadBuilder {
     }
 
     /**
-     * Configures Wi-Fi Calling (VoWiFi / WFC) and Cross-SIM Calling.
+     * Configures Wi-Fi Calling (VoWiFi / WFC) and Cross-SIM Calling, unhiding toggles in Settings.
      */
     fun enableVoWifi(
         available: Boolean = true,
@@ -260,12 +273,15 @@ class CarrierConfigPayloadBuilder {
     }
 
     /**
-     * Enables world mode, unlocks network selection menus, and enables 2G toggle.
+     * Enables world mode, unlocks network selection menus, unhides Preferred Network Type, and enables 2G toggle.
      */
     fun setGeneralOverrides(): CarrierConfigPayloadBuilder {
         bundle.putBoolean(KEY_WORLD_MODE_ENABLED_BOOL, true)
+        bundle.putBoolean(KEY_HIDE_PREFERRED_NETWORK_TYPE_BOOL, false)
         bundle.putBoolean(KEY_HIDE_CARRIER_NETWORK_SETTINGS_BOOL, false)
         bundle.putBoolean(KEY_HIDE_ENABLE_2G_BOOL, false)
+        bundle.putBoolean(KEY_CARRIER_SETTINGS_ENABLE_BOOL, true)
+        bundle.putBoolean(KEY_SHOW_4G_FOR_LTE_DATA_ICON_BOOL, false) // Show 4G+ / LTE-A
         bundle.putBoolean(KEY_SUPPORT_TDSCDMA_BOOL, false)
         return this
     }
