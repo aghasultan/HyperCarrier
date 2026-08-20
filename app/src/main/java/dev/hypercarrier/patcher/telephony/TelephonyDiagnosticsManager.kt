@@ -228,7 +228,7 @@ class TelephonyDiagnosticsManager(
                     rsrp = cellSignal.ssRsrp
                     rsrq = cellSignal.ssRsrq
                     sinr = cellSignal.ssSinr
-                    cqi = cellSignal.csiCqiTableIndex
+                    cqi = cellSignal.csiCqiReport.firstOrNull() ?: -1
                     asu = cellSignal.asuLevel
                     is5g = true
                     netType = if (netType.contains("SA")) "5G SA" else "5G NSA"

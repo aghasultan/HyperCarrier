@@ -123,7 +123,7 @@ object ShizukuBridge {
 
         if (pingSuccess) {
             val permissionGranted = try {
-                if (Shizuku.isPre_V11()) {
+                if (Shizuku.getVersion() < 11) {
                     false
                 } else {
                     Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
@@ -151,7 +151,7 @@ object ShizukuBridge {
             return
         }
 
-        if (Shizuku.isPre_V11()) {
+        if (Shizuku.getVersion() < 11) {
             _serviceError.value = "Shizuku version is too old. Please update Shizuku."
             return
         }
