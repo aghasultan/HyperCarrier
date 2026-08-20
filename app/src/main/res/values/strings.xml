@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HyperCarrier</string>
+    <string name="tile_ims_status_label">IMS Status</string>
+    <string name="tile_vonr_label">VoNR 5G Voice</string>
+    <string name="tile_radio_flush_label">Radio Flush</string>
+</resources>
