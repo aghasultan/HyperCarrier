@@ -136,7 +136,10 @@ fun ShizukuStatusCard(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         if (isShizukuRunning && !hasPermission) {
                             Button(
                                 onClick = onRequestPermission,
@@ -148,6 +151,24 @@ fun ShizukuStatusCard(
                                 Text("Authorize Shizuku")
                             }
                         } else if (!isShizukuRunning) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            Button(
+                                onClick = {
+                                    val launchIntent = context.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
+                                    if (launchIntent != null) {
+                                        context.startActivity(launchIntent)
+                                    } else {
+                                        onRetryConnect()
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open Shizuku")
+                            }
+
                             Button(
                                 onClick = onRetryConnect,
                                 shape = RoundedCornerShape(12.dp),
@@ -155,7 +176,7 @@ fun ShizukuStatusCard(
                             ) {
                                 Icon(Icons.Default.Terminal, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Check Shizuku Connection")
+                                Text("Refresh")
                             }
                         }
                     }
