@@ -113,7 +113,7 @@ fun ImsStatusCard(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (imsCapabilities.isImsRegistered) "Transport: ${imsCapabilities.registrationTransport}" else "Carrier Provisioning Ready",
+                            text = if (imsCapabilities.isImsRegistered) "Transport: ${imsCapabilities.transportType}" else "Carrier Provisioning Ready",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -212,7 +212,7 @@ fun ImsStatusCard(
                     icon = Icons.Default.Videocam,
                     title = "Carrier Video Calling (ViLTE)",
                     subtitle = "Hardware-accelerated modem video calling",
-                    checked = imsCapabilities.isVideoAvailable,
+                    checked = imsCapabilities.isVideoTelephonyAvailable,
                     onCheckedChange = onToggleViLte
                 )
             }

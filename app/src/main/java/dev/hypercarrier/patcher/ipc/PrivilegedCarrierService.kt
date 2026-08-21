@@ -49,11 +49,11 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
     }
 
     /**
-     * Injects a persistent CarrierConfig override bundle for the given subscription ID.
+     * Internal method to inject carrier config overrides without re-triggering recursive provisioning calls.
      */
     @SuppressLint("DiscouragedPrivateApi")
-    override fun applyPersistentConfig(subId: Int, bundle: PersistableBundle?) {
-        Log.i(TAG, "applyPersistentConfig called for subId=$subId with ${bundle?.size() ?: 0} keys")
+    private fun injectCarrierConfigOverride(subId: Int, bundle: PersistableBundle?) {
+        Log.i(TAG, "injectCarrierConfigOverride called for subId=$subId with ${bundle?.size() ?: 0} keys")
         try {
             var applied = false
 
@@ -123,9 +123,6 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
                 }
             }
 
-            // Automatically provision IMS flags and triggers
-            setImsProvisioning(subId, true, true, true)
-
             // Shell reload triggers to wake telephony daemon
             try {
                 Runtime.getRuntime().exec("cmd phone reload-carrier-config").waitFor()
@@ -133,8 +130,15 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
 
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to apply persistent CarrierConfig for subId=$subId", t)
-            throw RuntimeException("Failed to apply persistent CarrierConfig: ${t.message}", t)
         }
+    }
+
+    /**
+     * Injects a persistent CarrierConfig override bundle and applies full IMS provisioning.
+     */
+    override fun applyPersistentConfig(subId: Int, bundle: PersistableBundle?) {
+        injectCarrierConfigOverride(subId, bundle)
+        setImsProvisioning(subId, true, true, true)
     }
 
     /**
@@ -142,7 +146,7 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
      */
     override fun clearConfigOverride(subId: Int) {
         Log.i(TAG, "clearConfigOverride called for subId=$subId")
-        applyPersistentConfig(subId, null)
+        injectCarrierConfigOverride(subId, null)
     }
 
     /**
@@ -210,7 +214,7 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
                 putBoolean("hide_enhanced_4g_lte_bool", false)
                 putBoolean("carrier_volte_tty_supported_bool", true)
             }
-            applyPersistentConfig(subId, bundle)
+            injectCarrierConfigOverride(subId, bundle)
 
             // 5. System Properties
             Runtime.getRuntime().exec(arrayOf("setprop", "persist.vendor.radio.volte_enabled", if (enable) "1" else "0")).waitFor()
@@ -277,7 +281,7 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
                 putBoolean("editable_wfc_roaming_mode_bool", true)
                 putBoolean("carrier_wfc_supports_wifi_only_bool", true)
             }
-            applyPersistentConfig(subId, bundle)
+            injectCarrierConfigOverride(subId, bundle)
 
             Runtime.getRuntime().exec(arrayOf("setprop", "persist.vendor.radio.vowifi_enabled", if (enable) "1" else "0")).waitFor()
             Runtime.getRuntime().exec(arrayOf("setprop", "persist.radio.vowifi_state", if (enable) "1" else "0")).waitFor()
@@ -298,7 +302,7 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
                 putBoolean("vonr_setting_visibility_bool", true)
                 putBoolean("nr_timers_reset_on_voice_qos_bool", true)
             }
-            applyPersistentConfig(subId, bundle)
+            injectCarrierConfigOverride(subId, bundle)
 
             Runtime.getRuntime().exec(arrayOf("setprop", "persist.vendor.radio.vonr_enabled", if (enable) "1" else "0")).waitFor()
         } catch (t: Throwable) {
@@ -364,7 +368,7 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
                 putInt("carrier_default_wfc_ims_mode_int", mode)
                 putInt("carrier_default_wfc_ims_roaming_mode_int", mode)
             }
-            applyPersistentConfig(subId, bundle)
+            injectCarrierConfigOverride(subId, bundle)
         } catch (t: Throwable) {
             Log.e(TAG, "Error in setVoWifiMode: ${t.message}", t)
         }
@@ -398,7 +402,7 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
     }
 
     /**
-     * Directly provisions IMS capabilities (VoLTE, VoWiFi, VoNR, Video, UT) via ITelephony & IImsConfig.
+     * Directly provisions IMS capabilities (VoLTE, VoWiFi, VoNr, Video, UT) via ITelephony & IImsConfig.
      */
     override fun setImsProvisioning(subId: Int, enableVoLte: Boolean, enableVoWifi: Boolean, enableVoNr: Boolean) {
         setVoLteEnabled(subId, enableVoLte)
