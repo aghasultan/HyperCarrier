@@ -246,6 +246,11 @@ class CarrierConfigPayloadBuilder {
         bundle.putString(KEY_EMERGENCY_NOTIFICATION_NAME_STRING, "")
         bundle.putString(KEY_WFC_EMERGENCY_ADDRESS_CARRIER_APP_STRING, "")
         bundle.putInt(KEY_WFC_DATA_SPN_FORMAT_IDX_INT, 0)
+        bundle.putInt("wfc_spn_format_idx_int", 0)
+        bundle.putInt("wfc_flight_mode_spn_format_idx_int", 0)
+        bundle.putBoolean("use_wfc_home_network_mode_in_roaming_network_bool", false)
+        bundle.putBoolean("use_otasp_for_provisioning_bool", false)
+        bundle.putInt("call_waiting_service_class_int", 1)
         return this
     }
 
