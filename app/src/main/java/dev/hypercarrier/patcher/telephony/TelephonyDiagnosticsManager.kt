@@ -167,6 +167,19 @@ class TelephonyDiagnosticsManager(
                             } catch (_: Throwable) {}
                         }
 
+                        // Also check user settings states (isAdvancedCallingSettingEnabled / isVoWiFiSettingEnabled)
+                        try {
+                            val isAdvCallingMethod = mmTelManager.javaClass.methods.firstOrNull { it.name == "isAdvancedCallingSettingEnabled" }
+                            val advEnabled = isAdvCallingMethod?.invoke(mmTelManager) as? Boolean ?: false
+                            if (advEnabled) isVoLte = true
+                        } catch (_: Throwable) {}
+
+                        try {
+                            val isWfcMethod = mmTelManager.javaClass.methods.firstOrNull { it.name == "isVoWiFiSettingEnabled" }
+                            val wfcEnabled = isWfcMethod?.invoke(mmTelManager) as? Boolean ?: false
+                            if (wfcEnabled) isVoWifi = true
+                        } catch (_: Throwable) {}
+
                         if (isVoWifi) {
                             transport = "Wi-Fi"
                         } else if (isVoLte || isVoNr) {
@@ -177,6 +190,23 @@ class TelephonyDiagnosticsManager(
                     Log.d(TAG, "ImsMmTelManager check: ${t.message}")
                 }
             }
+
+            // Fallback check CarrierConfig for subId
+            try {
+                val ccm = context.getSystemService(Context.CARRIER_CONFIG_SERVICE) as? android.telephony.CarrierConfigManager
+                val config = ccm?.getConfigForSubId(subId)
+                if (config != null) {
+                    if (!isVoLte && config.getBoolean("carrier_volte_available_bool", false)) {
+                        isVoLte = true
+                    }
+                    if (!isVoWifi && config.getBoolean("carrier_wfc_ims_available_bool", false)) {
+                        isVoWifi = true
+                    }
+                    if (!isVoNr && config.getBoolean("vonr_enabled_bool", false)) {
+                        isVoNr = true
+                    }
+                }
+            } catch (_: Throwable) {}
 
             if (isRegistered && !isVoLte && !isVoWifi) {
                 isVoLte = true

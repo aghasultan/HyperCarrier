@@ -247,6 +247,108 @@ object ShizukuBridge {
     }
 
     /**
+     * Granular 1-Tap Toggle: Voice over LTE (VoLTE / 4G Calling).
+     */
+    suspend fun setVoLteEnabled(subId: Int, enable: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        val service = privilegedService ?: return@withContext Result.failure(
+            IllegalStateException("Privileged service is not connected. Please authorize Shizuku.")
+        )
+
+        try {
+            service.setVoLteEnabled(subId, enable)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to set VoLTE: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Granular 1-Tap Toggle: Voice over Wi-Fi (VoWiFi / Wi-Fi Calling).
+     */
+    suspend fun setVoWifiEnabled(subId: Int, enable: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        val service = privilegedService ?: return@withContext Result.failure(
+            IllegalStateException("Privileged service is not connected. Please authorize Shizuku.")
+        )
+
+        try {
+            service.setVoWifiEnabled(subId, enable)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to set VoWiFi: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Granular 1-Tap Toggle: Voice over New Radio (5G VoNR).
+     */
+    suspend fun setVoNrEnabled(subId: Int, enable: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        val service = privilegedService ?: return@withContext Result.failure(
+            IllegalStateException("Privileged service is not connected. Please authorize Shizuku.")
+        )
+
+        try {
+            service.setVoNrEnabled(subId, enable)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to set VoNR: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Granular 1-Tap Toggle: Carrier Video Calling (ViLTE).
+     */
+    suspend fun setViLteEnabled(subId: Int, enable: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        val service = privilegedService ?: return@withContext Result.failure(
+            IllegalStateException("Privileged service is not connected. Please authorize Shizuku.")
+        )
+
+        try {
+            service.setViLteEnabled(subId, enable)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to set ViLTE: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Granular Setting: Wi-Fi Calling Mode (1 = Wi-Fi Preferred, 2 = Cellular Preferred).
+     */
+    suspend fun setVoWifiMode(subId: Int, mode: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        val service = privilegedService ?: return@withContext Result.failure(
+            IllegalStateException("Privileged service is not connected. Please authorize Shizuku.")
+        )
+
+        try {
+            service.setVoWifiMode(subId, mode)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to set VoWiFi mode: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Forces immediate IMS deregistration and re-registration trigger on modem.
+     */
+    suspend fun forceReRegisterIms(subId: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        val service = privilegedService ?: return@withContext Result.failure(
+            IllegalStateException("Privileged service is not connected. Please authorize Shizuku.")
+        )
+
+        try {
+            service.forceReRegisterIms(subId)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to re-register IMS: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
      * Fetches current active CarrierConfig bundle for the given subscription ID.
      */
     suspend fun getCarrierConfig(subId: Int): Result<PersistableBundle> = withContext(Dispatchers.IO) {

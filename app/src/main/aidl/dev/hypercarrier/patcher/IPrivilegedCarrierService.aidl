@@ -5,12 +5,11 @@ import android.os.PersistableBundle;
 /**
  * Privileged carrier configuration and telephony service running under UID 2000 (Shell) via Shizuku.
  * Provides root-free persistent CarrierConfig overrides directly written to disk,
- * low-level network mode enforcement, IMS provisioning, and radio power cycling.
+ * granular 1-tap IMS Engine toggles, low-level network mode enforcement, and radio power cycling.
  */
 interface IPrivilegedCarrierService {
     /**
      * Injects a persistent CarrierConfig override bundle for the given subscription ID.
-     * Persists across phone reboots and developer options toggles.
      */
     void applyPersistentConfig(int subId, in PersistableBundle bundle);
 
@@ -23,6 +22,36 @@ interface IPrivilegedCarrierService {
      * Retrieves the active CarrierConfig bundle for the given subscription ID.
      */
     PersistableBundle getCarrierConfig(int subId);
+
+    /**
+     * Granular 1-Tap Toggle: Voice over LTE (VoLTE / 4G Calling).
+     */
+    void setVoLteEnabled(int subId, boolean enable);
+
+    /**
+     * Granular 1-Tap Toggle: Voice over Wi-Fi (VoWiFi / Wi-Fi Calling).
+     */
+    void setVoWifiEnabled(int subId, boolean enable);
+
+    /**
+     * Granular 1-Tap Toggle: Voice over New Radio (5G VoNR).
+     */
+    void setVoNrEnabled(int subId, boolean enable);
+
+    /**
+     * Granular 1-Tap Toggle: Carrier Video Calling (ViLTE).
+     */
+    void setViLteEnabled(int subId, boolean enable);
+
+    /**
+     * Granular Setting: Wi-Fi Calling Mode (1 = Wi-Fi Preferred, 2 = Cellular Preferred).
+     */
+    void setVoWifiMode(int subId, int mode);
+
+    /**
+     * Forces immediate IMS deregistration and re-registration trigger on modem.
+     */
+    void forceReRegisterIms(int subId);
 
     /**
      * Directly provisions IMS capabilities (VoLTE, VoWiFi, VoNR, Video) via ITelephony/IImsConfig.
@@ -49,8 +78,7 @@ interface IPrivilegedCarrierService {
     void setNetworkMode(int subId, int mode);
 
     /**
-     * Soft cycles radio power (toggle off -> sleep -> toggle on) to flush dead cell locks
-     * and force instant re-attachment to optimal 5G / LTE-A carrier components.
+     * Soft cycles radio power (toggle off -> sleep -> toggle on) to flush dead cell locks.
      */
     void cycleRadioPower(int subId);
 

@@ -127,9 +127,17 @@ fun DiagnosticsScreen(
             )
         }
 
-        // Live IMS Capabilities Matrix
+        // Live IMS Capabilities Matrix & 1-Tap Control Card
         item {
-            ImsStatusCard(imsCapabilities = imsCapabilities)
+            ImsStatusCard(
+                imsCapabilities = imsCapabilities,
+                onToggleVoLte = { viewModel.toggleVoLte(it) },
+                onToggleVoWifi = { viewModel.toggleVoWifi(it) },
+                onToggleVoNr = { viewModel.toggleVoNr(it) },
+                onToggleViLte = { viewModel.toggleViLte(it) },
+                onSetVoWifiMode = { viewModel.setVoWifiMode(it) },
+                onForceReRegister = { viewModel.forceReRegisterIms() }
+            )
         }
 
         // Detailed RF Parameters Card

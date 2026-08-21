@@ -272,6 +272,126 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Toggles VoLTE (4G HD Voice) on/off in real-time.
+     */
+    fun toggleVoLte(enable: Boolean) {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val result = ShizukuBridge.setVoLteEnabled(sub.subscriptionId, enable)
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "VoLTE ${if (enable) "Enabled & Provisioned" else "Disabled"}.",
+                    appliedKeysCount = 1
+                )
+                telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("Failed to set VoLTE: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Toggles VoWiFi (Wi-Fi Calling) on/off in real-time.
+     */
+    fun toggleVoWifi(enable: Boolean) {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val result = ShizukuBridge.setVoWifiEnabled(sub.subscriptionId, enable)
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "Wi-Fi Calling ${if (enable) "Enabled & Provisioned" else "Disabled"}.",
+                    appliedKeysCount = 1
+                )
+                telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("Failed to set VoWiFi: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Toggles 5G VoNR on/off in real-time.
+     */
+    fun toggleVoNr(enable: Boolean) {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val result = ShizukuBridge.setVoNrEnabled(sub.subscriptionId, enable)
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "5G VoNR ${if (enable) "Enabled & Provisioned" else "Disabled"}.",
+                    appliedKeysCount = 1
+                )
+                telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("Failed to set VoNR: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Toggles Carrier Video Calling (ViLTE) on/off in real-time.
+     */
+    fun toggleViLte(enable: Boolean) {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val result = ShizukuBridge.setViLteEnabled(sub.subscriptionId, enable)
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "ViLTE Video Calling ${if (enable) "Enabled" else "Disabled"}.",
+                    appliedKeysCount = 1
+                )
+                telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("Failed to set ViLTE: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Sets Wi-Fi Calling preference mode (1 = Wi-Fi Preferred, 2 = Cellular Preferred).
+     */
+    fun setVoWifiMode(mode: Int) {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val result = ShizukuBridge.setVoWifiMode(sub.subscriptionId, mode)
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "Wi-Fi Calling Mode updated to: ${if (mode == 1) "Wi-Fi Preferred" else "Cellular Preferred"}.",
+                    appliedKeysCount = 1
+                )
+            } else {
+                _injectionResult.value = InjectionResult.Error("Failed to set VoWiFi mode: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Forces immediate IMS re-registration trigger on modem.
+     */
+    fun forceReRegisterIms() {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val result = ShizukuBridge.forceReRegisterIms(sub.subscriptionId)
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "IMS Re-Registration trigger dispatched to modem.",
+                    appliedKeysCount = 1
+                )
+                kotlinx.coroutines.delay(1500)
+                telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("IMS re-registration failed: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
      * Executes 1-tap Radio Turbo Flush.
      */
     fun triggerRadioFlush() {

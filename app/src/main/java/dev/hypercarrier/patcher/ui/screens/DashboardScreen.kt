@@ -151,9 +151,17 @@ fun DashboardScreen(
             )
         }
 
-        // IMS Capabilities Card
+        // Interactive IMS Capabilities & 1-Tap Control Card
         item {
-            ImsStatusCard(imsCapabilities = imsCapabilities)
+            ImsStatusCard(
+                imsCapabilities = imsCapabilities,
+                onToggleVoLte = { viewModel.toggleVoLte(it) },
+                onToggleVoWifi = { viewModel.toggleVoWifi(it) },
+                onToggleVoNr = { viewModel.toggleVoNr(it) },
+                onToggleViLte = { viewModel.toggleViLte(it) },
+                onSetVoWifiMode = { viewModel.setVoWifiMode(it) },
+                onForceReRegister = { viewModel.forceReRegisterIms() }
+            )
         }
 
         // One-Tap Presets Header
