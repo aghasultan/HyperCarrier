@@ -203,26 +203,18 @@ object ShizukuBridge {
                     val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
                     val loader = asInterface.invoke(null, wrappedBinder)
 
-                    val overrideMethod = loader?.javaClass?.getMethod(
-                        "overrideConfig",
-                        Int::class.javaPrimitiveType,
-                        PersistableBundle::class.java,
-                        Boolean::class.javaPrimitiveType
-                    )
+                    val overrideMethod = loader?.javaClass?.methods?.firstOrNull {
+                        it.name == "overrideConfig" && (it.parameterCount == 3 || it.parameterCount == 2)
+                    }
                     overrideMethod?.isAccessible = true
                     
-                    try {
-                        overrideMethod?.invoke(loader, subId, bundle, true)
-                        Log.i(TAG, "Direct ShizukuBinderWrapper persistent overrideConfig succeeded")
-                    } catch (e: Throwable) {
-                        Log.w(TAG, "Direct persistent override: ${e.message}")
-                    }
-
-                    try {
-                        overrideMethod?.invoke(loader, subId, bundle, false)
-                        Log.i(TAG, "Direct ShizukuBinderWrapper in-memory overrideConfig succeeded")
-                    } catch (e: Throwable) {
-                        Log.w(TAG, "Direct in-memory override: ${e.message}")
+                    if (overrideMethod != null) {
+                        if (overrideMethod.parameterCount == 3) {
+                            overrideMethod.invoke(loader, subId, bundle, false)
+                        } else {
+                            overrideMethod.invoke(loader, subId, bundle)
+                        }
+                        Log.i(TAG, "Direct ShizukuBinderWrapper overrideConfig(subId, bundle, false) succeeded")
                     }
                 }
             } catch (t: Throwable) {
@@ -237,7 +229,7 @@ object ShizukuBridge {
 
             Result.success(Unit)
         } catch (t: Throwable) {
-            Log.e(TAG, "Failed to apply persistent config: ${t.message}", t)
+            Log.e(TAG, "Failed to apply config: ${t.message}", t)
             Result.failure(t)
         }
     }
@@ -254,19 +246,17 @@ object ShizukuBridge {
                 val asInterface = stubClass.getMethod("asInterface", IBinder::class.java)
                 val loader = asInterface.invoke(null, wrappedBinder)
 
-                val overrideMethod = loader?.javaClass?.getMethod(
-                    "overrideConfig",
-                    Int::class.javaPrimitiveType,
-                    PersistableBundle::class.java,
-                    Boolean::class.javaPrimitiveType
-                )
+                val overrideMethod = loader?.javaClass?.methods?.firstOrNull {
+                    it.name == "overrideConfig" && (it.parameterCount == 3 || it.parameterCount == 2)
+                }
                 overrideMethod?.isAccessible = true
-                try {
-                    overrideMethod?.invoke(loader, subId, null, true)
-                } catch (_: Throwable) {}
-                try {
-                    overrideMethod?.invoke(loader, subId, null, false)
-                } catch (_: Throwable) {}
+                if (overrideMethod != null) {
+                    if (overrideMethod.parameterCount == 3) {
+                        overrideMethod.invoke(loader, subId, null, false)
+                    } else {
+                        overrideMethod.invoke(loader, subId, null)
+                    }
+                }
             }
 
             privilegedService?.clearConfigOverride(subId)

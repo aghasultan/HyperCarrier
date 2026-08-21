@@ -50,7 +50,8 @@ object CarrierPresets {
                 )
                 .enableSignalEnhancements()
                 .setGeneralOverrides()
-                .putString("carrier_name_override_string", "Jazz")
+                .putBoolean("carrier_name_override_bool", true)
+                .putString("carrier_name_string", "Jazz")
                 .build()
         }
     )
@@ -98,7 +99,8 @@ object CarrierPresets {
                 )
                 .enableSignalEnhancements()
                 .setGeneralOverrides()
-                .putString("carrier_name_override_string", "Zong")
+                .putBoolean("carrier_name_override_bool", true)
+                .putString("carrier_name_string", "Zong")
                 .build()
         }
     )
@@ -146,7 +148,8 @@ object CarrierPresets {
                 )
                 .enableSignalEnhancements()
                 .setGeneralOverrides()
-                .putString("carrier_name_override_string", "Telenor PK")
+                .putBoolean("carrier_name_override_bool", true)
+                .putString("carrier_name_string", "Telenor PK")
                 .build()
         }
     )
@@ -194,7 +197,8 @@ object CarrierPresets {
                 )
                 .enableSignalEnhancements()
                 .setGeneralOverrides()
-                .putString("carrier_name_override_string", "Ufone")
+                .putBoolean("carrier_name_override_bool", true)
+                .putString("carrier_name_string", "Ufone")
                 .build()
         }
     )

@@ -57,38 +57,29 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
         try {
             var applied = false
 
-            // Strategy 1: Reflection on CarrierConfigManager instance (Persistent + In-Memory)
+            // Strategy 1: Reflection on CarrierConfigManager instance
             try {
                 val context = getSystemOrAppContext()
                 if (context != null) {
                     val ccm = context.getSystemService(Context.CARRIER_CONFIG_SERVICE) as? CarrierConfigManager
                     if (ccm != null) {
-                        val overrideMethod = CarrierConfigManager::class.java.getMethod(
-                            "overrideConfig",
-                            Int::class.javaPrimitiveType,
-                            PersistableBundle::class.java,
-                            Boolean::class.javaPrimitiveType
-                        )
-                        overrideMethod.isAccessible = true
-                        
-                        try {
-                            overrideMethod.invoke(ccm, subId, bundle, true)
-                        } catch (e: Throwable) {
-                            Log.w(TAG, "Persistent override call: ${e.message}")
+                        val overrideMethod = CarrierConfigManager::class.java.methods.firstOrNull {
+                            it.name == "overrideConfig" && (it.parameterCount == 3 || it.parameterCount == 2)
                         }
-
-                        try {
-                            overrideMethod.invoke(ccm, subId, bundle, false)
-                        } catch (e: Throwable) {
-                            Log.w(TAG, "In-memory override call: ${e.message}")
+                        overrideMethod?.isAccessible = true
+                        if (overrideMethod != null) {
+                            if (overrideMethod.parameterCount == 3) {
+                                overrideMethod.invoke(ccm, subId, bundle, false)
+                            } else {
+                                overrideMethod.invoke(ccm, subId, bundle)
+                            }
+                            applied = true
+                            Log.i(TAG, "Successfully invoked CarrierConfigManager.overrideConfig(subId, bundle, false)")
                         }
-
-                        applied = true
-                        Log.i(TAG, "Successfully invoked CarrierConfigManager.overrideConfig via Context")
                     }
                 }
             } catch (e: Throwable) {
-                Log.w(TAG, "Strategy 1 failed, trying ServiceManager: ${e.message}")
+                Log.w(TAG, "Strategy 1 note: ${e.message}")
             }
 
             // Strategy 2: Direct binder IPC to ICarrierConfigLoader via ServiceManager
@@ -102,34 +93,36 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
                         val asInterfaceMethod = stubClass.getMethod("asInterface", IBinder::class.java)
                         val loader = asInterfaceMethod.invoke(null, binder)
 
-                        val overrideMethod = loader?.javaClass?.getMethod(
-                            "overrideConfig",
-                            Int::class.javaPrimitiveType,
-                            PersistableBundle::class.java,
-                            Boolean::class.javaPrimitiveType
-                        )
+                        val overrideMethod = loader?.javaClass?.methods?.firstOrNull {
+                            it.name == "overrideConfig" && (it.parameterCount == 3 || it.parameterCount == 2)
+                        }
                         overrideMethod?.isAccessible = true
-                        try {
-                            overrideMethod?.invoke(loader, subId, bundle, true)
-                        } catch (_: Throwable) {}
-                        try {
-                            overrideMethod?.invoke(loader, subId, bundle, false)
-                        } catch (_: Throwable) {}
-                        applied = true
-                        Log.i(TAG, "Successfully invoked ICarrierConfigLoader.overrideConfig via ServiceManager")
+                        if (overrideMethod != null) {
+                            if (overrideMethod.parameterCount == 3) {
+                                overrideMethod.invoke(loader, subId, bundle, false)
+                            } else {
+                                overrideMethod.invoke(loader, subId, bundle)
+                            }
+                            applied = true
+                            Log.i(TAG, "Successfully invoked ICarrierConfigLoader.overrideConfig(subId, bundle, false)")
+                        }
                     }
                 } catch (e: Throwable) {
                     Log.w(TAG, "Strategy 2 error: ${e.message}")
                 }
             }
 
-            // Shell reload triggers to wake telephony daemon
+            // Set low-level radio system properties directly under UID 2000
             try {
-                Runtime.getRuntime().exec("cmd phone reload-carrier-config").waitFor()
+                Runtime.getRuntime().exec("setprop persist.vendor.radio.volte_enabled 1").waitFor()
+                Runtime.getRuntime().exec("setprop persist.vendor.radio.vowifi_enabled 1").waitFor()
+                Runtime.getRuntime().exec("setprop persist.vendor.radio.vonr_enabled 1").waitFor()
+                Runtime.getRuntime().exec("setprop persist.radio.volte_state 1").waitFor()
+                Runtime.getRuntime().exec("setprop persist.radio.vowifi_state 1").waitFor()
             } catch (_: Throwable) {}
 
         } catch (t: Throwable) {
-            Log.e(TAG, "Failed to apply persistent CarrierConfig for subId=$subId", t)
+            Log.e(TAG, "Failed to apply CarrierConfig for subId=$subId", t)
         }
     }
 
@@ -393,8 +386,7 @@ class PrivilegedCarrierService : IPrivilegedCarrierService.Stub {
                 } catch (_: Throwable) {}
             }
 
-            // Shell triggers to force telephony daemon reload
-            Runtime.getRuntime().exec("cmd phone reload-carrier-config").waitFor()
+            // Shell triggers to force telephony daemon update
             Runtime.getRuntime().exec("setprop persist.radio.reboot_on_modem_reset 0").waitFor()
         } catch (t: Throwable) {
             Log.e(TAG, "Error in forceReRegisterIms: ${t.message}", t)
