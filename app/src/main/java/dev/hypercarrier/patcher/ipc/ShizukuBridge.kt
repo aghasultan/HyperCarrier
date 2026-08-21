@@ -20,12 +20,11 @@ import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
-import java.lang.reflect.Method
 
 /**
  * Hyper-Elite Rootless Dual-Engine Shizuku Bridge.
  * Directly utilizes ShizukuBinderWrapper + SystemServiceHelper for instantaneous ICarrierConfigLoader
- * and ITelephony injection, paired with Shizuku.newProcess for shell triggers and PrivilegedCarrierService.
+ * and ITelephony injection, paired with PrivilegedCarrierService running under UID 2000 (Shell).
  */
 object ShizukuBridge {
 
@@ -88,7 +87,6 @@ object ShizukuBridge {
         override fun onServiceDisconnected(name: ComponentName?) {
             Log.w(TAG, "PrivilegedCarrierService disconnected")
             privilegedService = null
-            // We maintain service connected true if Shizuku binder wrapper is active
             _isServiceConnected.value = _hasPermission.value
         }
     }
@@ -188,8 +186,7 @@ object ShizukuBridge {
     // =========================================================================
 
     /**
-     * Injects a persistent CarrierConfig override bundle for the given subscription ID
-     * using direct ShizukuBinderWrapper on ICarrierConfigLoader, shell reload, and privileged service.
+     * Injects a persistent CarrierConfig override bundle for the given subscription ID.
      */
     suspend fun applyPersistentConfig(subId: Int, bundle: PersistableBundle): Result<Unit> = withContext(Dispatchers.IO) {
         if (!_hasPermission.value && !Shizuku.pingBinder()) {
@@ -197,8 +194,6 @@ object ShizukuBridge {
         }
 
         try {
-            var applied = false
-
             // 1. Direct ShizukuBinderWrapper to ICarrierConfigLoader
             try {
                 val rawBinder = SystemServiceHelper.getSystemService("carrier_config")
@@ -216,42 +211,29 @@ object ShizukuBridge {
                     )
                     overrideMethod?.isAccessible = true
                     
-                    // Disk persistent override
                     try {
                         overrideMethod?.invoke(loader, subId, bundle, true)
                         Log.i(TAG, "Direct ShizukuBinderWrapper persistent overrideConfig succeeded")
                     } catch (e: Throwable) {
-                        Log.w(TAG, "Direct persistent override call: ${e.message}")
+                        Log.w(TAG, "Direct persistent override: ${e.message}")
                     }
 
-                    // In-memory override
                     try {
                         overrideMethod?.invoke(loader, subId, bundle, false)
                         Log.i(TAG, "Direct ShizukuBinderWrapper in-memory overrideConfig succeeded")
                     } catch (e: Throwable) {
-                        Log.w(TAG, "Direct in-memory override call: ${e.message}")
+                        Log.w(TAG, "Direct in-memory override: ${e.message}")
                     }
-
-                    applied = true
                 }
             } catch (t: Throwable) {
-                Log.w(TAG, "Direct ICarrierConfigLoader error: ${t.message}")
+                Log.w(TAG, "Direct ICarrierConfigLoader note: ${t.message}")
             }
 
-            // 2. Fallback to Privileged UserService if active
-            privilegedService?.applyPersistentConfig(subId, bundle)
-
-            // 3. Direct Modem Telephony IMS Provisioning
+            // 2. Direct Modem Telephony IMS Provisioning
             setImsProvisioningDirect(subId, true, true, true)
 
-            // 4. Shell Reload Triggers
-            execShizukuCmd("cmd", "phone", "reload-carrier-config")
-            execShizukuCmd("setprop", "persist.vendor.radio.volte_enabled", "1")
-            execShizukuCmd("setprop", "persist.vendor.radio.vowifi_enabled", "1")
-            execShizukuCmd("setprop", "persist.vendor.radio.vonr_enabled", "1")
-            execShizukuCmd("setprop", "persist.radio.volte_state", "1")
-            execShizukuCmd("setprop", "persist.radio.vowifi_state", "1")
-            execShizukuCmd("setprop", "persist.radio.reboot_on_modem_reset", "0")
+            // 3. Fallback / supplementary execution via Privileged UserService
+            privilegedService?.applyPersistentConfig(subId, bundle)
 
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -288,7 +270,6 @@ object ShizukuBridge {
             }
 
             privilegedService?.clearConfigOverride(subId)
-            execShizukuCmd("cmd", "phone", "reload-carrier-config")
             Result.success(Unit)
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to clear config: ${t.message}", t)
@@ -328,10 +309,6 @@ object ShizukuBridge {
             }
             applyPersistentConfig(subId, bundle)
 
-            execShizukuCmd("setprop", "persist.vendor.radio.volte_enabled", if (enable) "1" else "0")
-            execShizukuCmd("setprop", "persist.radio.volte_state", if (enable) "1" else "0")
-            execShizukuCmd("cmd", "phone", "reload-carrier-config")
-
             privilegedService?.setVoLteEnabled(subId, enable)
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -358,10 +335,6 @@ object ShizukuBridge {
             }
             applyPersistentConfig(subId, bundle)
 
-            execShizukuCmd("setprop", "persist.vendor.radio.vowifi_enabled", if (enable) "1" else "0")
-            execShizukuCmd("setprop", "persist.radio.vowifi_state", if (enable) "1" else "0")
-            execShizukuCmd("cmd", "phone", "reload-carrier-config")
-
             privilegedService?.setVoWifiEnabled(subId, enable)
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -381,9 +354,6 @@ object ShizukuBridge {
                 putBoolean("nr_timers_reset_on_voice_qos_bool", true)
             }
             applyPersistentConfig(subId, bundle)
-
-            execShizukuCmd("setprop", "persist.vendor.radio.vonr_enabled", if (enable) "1" else "0")
-            execShizukuCmd("cmd", "phone", "reload-carrier-config")
 
             privilegedService?.setVoNrEnabled(subId, enable)
             Result.success(Unit)
@@ -446,9 +416,6 @@ object ShizukuBridge {
                     telephony?.javaClass?.methods?.firstOrNull { it.name == "enableIms" }?.invoke(telephony, subId)
                 } catch (_: Throwable) {}
             }
-
-            execShizukuCmd("cmd", "phone", "reload-carrier-config")
-            execShizukuCmd("setprop", "persist.radio.reboot_on_modem_reset", "0")
 
             privilegedService?.forceReRegisterIms(subId)
             Result.success(Unit)
@@ -550,10 +517,6 @@ object ShizukuBridge {
                 }
             }
 
-            execShizukuCmd("cmd", "connectivity", "airplane-mode", "enable")
-            kotlinx.coroutines.delay(600)
-            execShizukuCmd("cmd", "connectivity", "airplane-mode", "disable")
-
             privilegedService?.cycleRadioPower(subId)
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -567,8 +530,6 @@ object ShizukuBridge {
      */
     suspend fun flushDnsCache(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            execShizukuCmd("ndc", "resolver", "cleardns")
-            execShizukuCmd("cmd", "connectivity", "flush-default-dns")
             privilegedService?.flushDnsCache()
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -667,15 +628,6 @@ object ShizukuBridge {
             method?.invoke(telephony, subId, value)
         } catch (t: Throwable) {
             Log.d(TAG, "$methodName notice: ${t.message}")
-        }
-    }
-
-    private fun execShizukuCmd(vararg cmd: String) {
-        try {
-            val process = Shizuku.newProcess(cmd, null, null)
-            process.waitFor()
-        } catch (t: Throwable) {
-            Log.d(TAG, "execShizukuCmd notice: ${t.message}")
         }
     }
 }
