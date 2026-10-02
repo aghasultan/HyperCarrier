@@ -559,25 +559,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Executes 1-tap Radio Turbo Flush.
-     */
-    fun triggerRadioFlush() {
-        val sub = _selectedSubscription.value ?: return
-        viewModelScope.launch {
-            _injectionResult.value = InjectionResult.InProgress
-            val result = ShizukuBridge.cycleRadioPower(sub.subscriptionId)
-            ShizukuBridge.flushDnsCache()
-            if (result.isSuccess) {
-                _injectionResult.value = InjectionResult.Success(
-                    message = "Radio Turbo Flush executed! Re-attached to optimal carrier components.",
-                    appliedKeysCount = 1
-                )
-            } else {
-                _injectionResult.value = InjectionResult.Error("Radio flush failed: ${result.exceptionOrNull()?.message}")
-            }
-        }
-    }
 
     /**
      * Toggles the Autonomous Radio Guard & Auto-Healer background watchdog.
