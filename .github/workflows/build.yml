@@ -26,13 +26,49 @@ jobs:
         uses: android-actions/setup-android@v3
         continue-on-error: true
 
+      - name: Install & Configure Unstripped AOSP android.jar
+        run: |
+          echo "=== Setting up Unstripped AOSP android.jar (API 35) ==="
+          if command -v sdkmanager &> /dev/null; then
+            echo "y" | sdkmanager "platforms;android-35" || true
+          fi
+
+          # Target all potential SDK platform locations on runner
+          for BASE in "${ANDROID_HOME}" "${ANDROID_SDK_ROOT}" "/usr/local/lib/android/sdk"; do
+            if [ -n "$BASE" ]; then
+              PLATFORM_DIR="$BASE/platforms/android-35"
+              mkdir -p "$PLATFORM_DIR"
+              echo "Downloading unstripped android.jar to $PLATFORM_DIR/android.jar..."
+              curl -sSL "https://raw.githubusercontent.com/Reginer/aosp-android-jar/main/android-35/android.jar" -o "$PLATFORM_DIR/android.jar"
+              
+              cat << 'EOF' > "$PLATFORM_DIR/source.properties"
+Pkg.Desc=Android SDK Platform 35
+Pkg.UserSrc=false
+Platform.Version=15
+Pkg.Revision=1
+AndroidVersion.ApiLevel=35
+EOF
+            fi
+          done
+          echo "=== Unstripped AOSP android.jar configured successfully ==="
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Build Debug APK with Gradle
-        run: ./gradlew assembleDebug --stacktrace
+        id: gradle_build
+        run: |
+          ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
         env:
           ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+
+      - name: Publish Build Log on Failure
+        if: failure()
+        run: |
+          echo "### ❌ Gradle Build Failed" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          tail -n 250 build.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4

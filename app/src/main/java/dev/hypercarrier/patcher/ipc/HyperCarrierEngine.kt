@@ -140,10 +140,11 @@ object HyperCarrierEngine {
 
             Log.i(TAG, "Starting HyperInstrumentation for subId=$subId, keys=${overrides?.size() ?: 0}")
 
+            val flagNoRestart = 0x8 // ActivityManager.INSTR_FLAG_NO_RESTART
             am.startInstrumentation(
                 ComponentName(context, HyperInstrumentation::class.java),
                 null,
-                ActivityManager.INSTR_FLAG_NO_RESTART,
+                flagNoRestart,
                 args,
                 null,
                 UiAutomationConnection(),

@@ -81,7 +81,6 @@ dependencies {
 
     // Hidden API Bypass & Android Telephony Stubs
     implementation(libs.hiddenapibypass)
-    compileOnly(libs.android.hidden.api)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
