@@ -321,6 +321,7 @@ object HyperCarrierEngine {
      * Configures allowed network types (e.g. 5G SA/NSA, 5G SA only, or LTE-A only).
      */
     suspend fun setAllowedNetworkMode(context: Context, subId: Int, modeId: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
             val baseTm = context.getSystemService(android.telephony.TelephonyManager::class.java)
                 ?: return@withContext Result.failure(IllegalStateException("TelephonyManager not available"))
             val tm = baseTm.createForSubscriptionId(subId)
