@@ -1,6 +1,6 @@
 name: Build HyperCarrier APK
 
-on:
+'on':
   push:
     branches: [ "**" ]
   pull_request:
@@ -40,14 +40,7 @@ jobs:
               mkdir -p "$PLATFORM_DIR"
               echo "Downloading unstripped android.jar to $PLATFORM_DIR/android.jar..."
               curl -sSL "https://raw.githubusercontent.com/Reginer/aosp-android-jar/main/android-35/android.jar" -o "$PLATFORM_DIR/android.jar"
-              
-              cat << 'EOF' > "$PLATFORM_DIR/source.properties"
-Pkg.Desc=Android SDK Platform 35
-Pkg.UserSrc=false
-Platform.Version=15
-Pkg.Revision=1
-AndroidVersion.ApiLevel=35
-EOF
+              printf "Pkg.Desc=Android SDK Platform 35\nPkg.UserSrc=false\nPlatform.Version=15\nPkg.Revision=1\nAndroidVersion.ApiLevel=35\n" > "$PLATFORM_DIR/source.properties"
             fi
           done
           echo "=== Unstripped AOSP android.jar configured successfully ==="
