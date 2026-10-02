@@ -272,7 +272,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sub = _selectedSubscription.value ?: return
         _selectedNetworkMode.value = modeId
         viewModelScope.launch {
-            val result = ShizukuBridge.setNetworkMode(sub.subscriptionId, modeId)
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.setAllowedNetworkMode(getApplication(), sub.subscriptionId, modeId)
             if (result.isSuccess) {
                 _injectionResult.value = InjectionResult.Success(
                     message = "Network Mode enforced successfully.",
@@ -281,6 +281,126 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 _injectionResult.value = InjectionResult.Error("Failed to set mode: ${result.exceptionOrNull()?.message}")
             }
+        }
+    }
+
+    /**
+     * Executes 1-tap Radio Turbo Flush.
+     */
+    fun triggerRadioFlush() {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.executeRadioFlush(sub.subscriptionId)
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "Radio Turbo Flush executed! Modem IMS SIP stack reset & re-attached to optimal carrier components.",
+                    appliedKeysCount = 1
+                )
+                telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("Radio flush failed: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Sets custom carrier display name (SPN in status bar).
+     */
+    fun setCarrierDisplayName(name: String) {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val bundle = PersistableBundle().apply {
+                putBoolean("carrier_name_override_bool", true)
+                putString("carrier_name_string", name)
+            }
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                getApplication(), sub.subscriptionId, bundle
+            )
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "Carrier name branding updated to '$name'!",
+                    appliedKeysCount = 2
+                )
+                loadActiveCarrierConfig(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("Failed to update carrier name: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Sets custom VoLTE / VoWiFi SIP User-Agent string.
+     */
+    fun setCustomUserAgent(userAgent: String) {
+        val sub = _selectedSubscription.value ?: return
+        viewModelScope.launch {
+            _injectionResult.value = InjectionResult.InProgress
+            val bundle = PersistableBundle().apply {
+                putString("ims.ims_user_agent_string", userAgent)
+            }
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                getApplication(), sub.subscriptionId, bundle
+            )
+            if (result.isSuccess) {
+                _injectionResult.value = InjectionResult.Success(
+                    message = "VoLTE SIP User-Agent updated!",
+                    appliedKeysCount = 1
+                )
+                loadActiveCarrierConfig(sub.subscriptionId)
+            } else {
+                _injectionResult.value = InjectionResult.Error("Failed to update User-Agent: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
+
+    /**
+     * Exports full real-time field telemetry report.
+     */
+    fun exportTelemetryReport(): String {
+        val sub = _selectedSubscription.value
+        val metrics = signalMetrics.value
+        val ims = imsCapabilities.value
+        val ca = carrierAggregation.value
+        val benchmark = benchmarkResult.value
+
+        return buildString {
+            appendLine("=== HYPERCARRIER FIELD TELEMETRY REPORT ===")
+            appendLine("Timestamp: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
+            appendLine("SIM Carrier: ${sub?.carrierName ?: "Unknown"} (PLMN: ${sub?.plmn ?: "N/A"})")
+            appendLine("Slot: ${if (sub?.isEmbedded == true) "eSIM" else "SIM ${(sub?.slotIndex ?: 0) + 1}"}")
+            appendLine()
+            appendLine("--- RF SIGNAL PARAMETERS ---")
+            appendLine("Network Type: ${metrics.networkType}")
+            appendLine("RSRP: ${if (metrics.rsrpDbm != -999) "${metrics.rsrpDbm} dBm" else "N/A"}")
+            appendLine("RSRQ: ${if (metrics.rsrqDb != -999) "${metrics.rsrqDb} dB" else "N/A"}")
+            appendLine("SINR: ${if (metrics.sinrDb != -999) "${metrics.sinrDb} dB" else "N/A"}")
+            appendLine("ASU: ${metrics.asu}")
+            appendLine("Serving Band: ${metrics.band}")
+            appendLine("Physical Cell ID (PCI): ${metrics.pci}")
+            appendLine("Cell Identity: ${metrics.cellId}")
+            appendLine()
+            appendLine("--- IMS ENGINE & VOICE CORE ---")
+            appendLine("IMS Registration Status: ${if (ims.isImsRegistered) "REGISTERED" else "UNREGISTERED"}")
+            appendLine("VoLTE (4G Voice): ${if (ims.isVoLteAvailable) "AVAILABLE" else "DISABLED"}")
+            appendLine("VoWiFi (Wi-Fi Calling): ${if (ims.isVoWifiAvailable) "AVAILABLE" else "DISABLED"}")
+            appendLine("VoNR (5G Voice): ${if (ims.isVoNrAvailable) "AVAILABLE" else "DISABLED"}")
+            appendLine("ViLTE (Video): ${if (ims.isVideoTelephonyAvailable) "AVAILABLE" else "DISABLED"}")
+            appendLine("UT / XCAP: ${if (ims.isUtAvailable) "AVAILABLE" else "DISABLED"}")
+            appendLine("Transport: ${ims.transportType}")
+            appendLine()
+            appendLine("--- CARRIER AGGREGATION (CA) ---")
+            appendLine("Total Aggregated Bandwidth: ${ca.totalAggregatedBandwidthMhz} MHz")
+            appendLine("MIMO Configuration: ${ca.mimoLayers}")
+            appendLine("Downlink Modulation: ${ca.modulation}")
+            appendLine("Is Aggregating: ${ca.isAggregating}")
+            appendLine()
+            appendLine("--- LATENCY & JITTER BENCHMARK ---")
+            appendLine("Server: ${benchmark.serverName}")
+            appendLine("Average Latency: ${String.format("%.2f", benchmark.avgLatencyMs)} ms")
+            appendLine("Jitter: ${String.format("%.2f", benchmark.jitterMs)} ms")
+            appendLine("Packet Loss: ${benchmark.packetLossPercent}%")
         }
     }
 

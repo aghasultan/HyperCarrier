@@ -5,6 +5,7 @@ import android.service.quicksettings.TileService
 import android.telephony.SubscriptionManager
 import android.widget.Toast
 import dev.hypercarrier.patcher.data.CarrierConfigPayloadBuilder
+import dev.hypercarrier.patcher.ipc.HyperCarrierEngine
 import dev.hypercarrier.patcher.ipc.ShizukuBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +45,7 @@ class VoNRToggleTileService : TileService() {
                 .enableVoNr(enabled = targetState, settingVisibility = true)
                 .build()
 
-            val result = ShizukuBridge.applyPersistentConfig(subId, bundle)
+            val result = HyperCarrierEngine.applyFullCarrierProfile(this@VoNRToggleTileService, subId, bundle)
             if (result.isSuccess) {
                 isVoNrEnabled = targetState
                 updateTileState()

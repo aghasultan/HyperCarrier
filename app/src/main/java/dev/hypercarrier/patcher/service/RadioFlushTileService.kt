@@ -4,6 +4,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.telephony.SubscriptionManager
 import android.widget.Toast
+import dev.hypercarrier.patcher.ipc.HyperCarrierEngine
 import dev.hypercarrier.patcher.ipc.ShizukuBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,7 +13,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Quick Settings Tile to execute a 1-tap "Radio Turbo Flush".
- * Soft cycles radio power to immediately flush dead cell locks and lock onto optimal 5G / LTE-A carrier components.
+ * Cycles modem radio and IMS SIP stack to lock onto optimal 5G / LTE-A carrier components.
  */
 class RadioFlushTileService : TileService() {
 
@@ -46,9 +47,8 @@ class RadioFlushTileService : TileService() {
         tile?.updateTile()
 
         serviceScope.launch {
-            Toast.makeText(this@RadioFlushTileService, "Flushing Radio & Re-aggregating Bands...", Toast.LENGTH_SHORT).show()
-            ShizukuBridge.cycleRadioPower(subId)
-            ShizukuBridge.flushDnsCache()
+            Toast.makeText(this@RadioFlushTileService, "Flushing Radio & Re-negotiating IMS...", Toast.LENGTH_SHORT).show()
+            HyperCarrierEngine.executeRadioFlush(subId)
 
             tile?.state = Tile.STATE_INACTIVE
             tile?.label = "Radio Flush"

@@ -1,8 +1,20 @@
 package dev.hypercarrier.patcher.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,12 +37,11 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.PhoneInTalk
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -55,14 +67,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.hypercarrier.patcher.data.CarrierPreset
 import dev.hypercarrier.patcher.data.CarrierPresets
 import dev.hypercarrier.patcher.data.InjectionResult
-import dev.hypercarrier.patcher.data.NetworkModeOption
 import dev.hypercarrier.patcher.ui.MainViewModel
 import dev.hypercarrier.patcher.ui.components.ImsStatusCard
 import dev.hypercarrier.patcher.ui.components.ShizukuStatusCard
@@ -76,6 +91,7 @@ fun DashboardScreen(
     onNavigateToEditor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val subscriptions by viewModel.subscriptions.collectAsState()
     val selectedSub by viewModel.selectedSubscription.collectAsState()
     val isShizukuRunning by viewModel.isShizukuRunning.collectAsState()
@@ -129,6 +145,25 @@ fun DashboardScreen(
             )
         }
 
+        // Hyper-Elite Hero RF Radar & 1-Tap Control Center
+        item {
+            HeroRfRadarCard(
+                carrierName = selectedSub?.carrierName ?: selectedSub?.displayName ?: "Baseband Initialized",
+                networkType = signalMetrics.networkType,
+                rsrpDbm = signalMetrics.rsrpDbm,
+                is5g = signalMetrics.is5gConnected,
+                isImsRegistered = imsCapabilities.isImsRegistered,
+                onFlushRadio = { viewModel.triggerRadioFlush() },
+                onResetIms = { viewModel.forceReRegisterIms() },
+                onCopyTelemetry = {
+                    val report = viewModel.exportTelemetryReport()
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    clipboard?.setPrimaryClip(ClipData.newPlainText("HyperCarrier Telemetry", report))
+                    Toast.makeText(context, "RF Telemetry copied to clipboard", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+
         // Signal & RF Diagnostics Card
         item {
             SignalStrengthCard(metrics = signalMetrics)
@@ -164,26 +199,60 @@ fun DashboardScreen(
             )
         }
 
-        // One-Tap Presets Header
+        // One-Tap Presets Header with Quick Scroll Row
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "One-Tap Carrier Profiles",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Turbo Aggregation Enabled",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Carrier Presets Matrix",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Turbo Aggregation Ready",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Quick horizontal preset chips
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val quickPresets = listOf(
+                        CarrierPresets.ZONG_PAKISTAN,
+                        CarrierPresets.JAZZ_PAKISTAN,
+                        CarrierPresets.TELENOR_PAKISTAN,
+                        CarrierPresets.UFONE_PAKISTAN,
+                        CarrierPresets.GLOBAL_ULTRA_UNLOCK
+                    )
+                    quickPresets.forEach { preset ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                            modifier = Modifier.clickable { viewModel.applyPreset(preset) }
+                        ) {
+                            Text(
+                                text = preset.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -207,7 +276,7 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Quick Management Actions",
+                    text = "System Administration",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 4.dp)
@@ -268,6 +337,234 @@ fun DashboardScreen(
                 }
             }
         )
+    }
+}
+
+/**
+ * Hyper-Elite Hero RF Radar Card.
+ * Displays animated concentric radar rings, rotating sweep line, and 1-tap quick action controls.
+ */
+@Composable
+fun HeroRfRadarCard(
+    carrierName: String,
+    networkType: String,
+    rsrpDbm: Int,
+    is5g: Boolean,
+    isImsRegistered: Boolean,
+    onFlushRadio: () -> Unit,
+    onResetIms: () -> Unit,
+    onCopyTelemetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "RadarTransition")
+    val sweepAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "RadarSweep"
+    )
+    val pulseRadius by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "RadarPulse"
+    )
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isImsRegistered) SignalExcellent.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Radar Visual Header
+            Box(
+                modifier = Modifier
+                    .size(150.dp)
+                    .padding(6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                val primaryColor = MaterialTheme.colorScheme.primary
+                val accentColor = if (isImsRegistered) SignalExcellent else MaterialTheme.colorScheme.tertiary
+
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val maxRadius = size.minDimension / 2f
+
+                    // Fixed concentric rings
+                    for (i in 1..3) {
+                        drawCircle(
+                            color = primaryColor.copy(alpha = 0.12f * i),
+                            radius = maxRadius * (i / 3f),
+                            center = center,
+                            style = Stroke(width = 1.5.dp.toPx())
+                        )
+                    }
+
+                    // Pulsing expanding ring
+                    drawCircle(
+                        color = accentColor.copy(alpha = (1f - pulseRadius).coerceIn(0f, 0.7f)),
+                        radius = maxRadius * pulseRadius,
+                        center = center,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+
+                    // Crosshairs
+                    drawLine(
+                        color = primaryColor.copy(alpha = 0.2f),
+                        start = Offset(center.x, 0f),
+                        end = Offset(center.x, size.height),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                    drawLine(
+                        color = primaryColor.copy(alpha = 0.2f),
+                        start = Offset(0f, center.y),
+                        end = Offset(size.width, center.y),
+                        strokeWidth = 1.dp.toPx()
+                    )
+
+                    // Rotating Radar Sweep
+                    val sweepRad = Math.toRadians(sweepAngle.toDouble())
+                    val endX = center.x + maxRadius * kotlin.math.cos(sweepRad).toFloat()
+                    val endY = center.y + maxRadius * kotlin.math.sin(sweepRad).toFloat()
+                    drawLine(
+                        color = accentColor.copy(alpha = 0.85f),
+                        start = center,
+                        end = Offset(endX, endY),
+                        strokeWidth = 2.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                // Center Telemetry Pill
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    border = BorderStroke(1.5.dp, if (isImsRegistered) SignalExcellent else primaryColor),
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = if (rsrpDbm != -999) "$rsrpDbm" else "--",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = if (isImsRegistered) SignalExcellent else MaterialTheme.colorScheme.onSurface,
+                            fontSize = 17.sp
+                        )
+                        Text(
+                            text = "dBm",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Carrier & Baseband State
+            Text(
+                text = carrierName.ifBlank { "Modem Baseband Ready" },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (is5g) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = networkType.ifBlank { "LTE/5G" },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (is5g) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isImsRegistered) SignalExcellent.copy(alpha = 0.18f) else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                ) {
+                    Text(
+                        text = if (isImsRegistered) "IMS SIP ONLINE" else "IMS UNREGISTERED",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isImsRegistered) SignalExcellent else MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 1-Tap Quick Action Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onFlushRadio,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Turbo Flush", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = onResetIms,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                ) {
+                    Icon(Icons.Default.PhoneInTalk, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reset IMS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
+                    onClick = onCopyTelemetry,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Telemetry", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 

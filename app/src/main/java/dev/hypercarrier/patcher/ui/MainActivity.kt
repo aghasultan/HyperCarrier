@@ -45,6 +45,7 @@ import dev.hypercarrier.patcher.ui.theme.HyperCarrierTheme
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+    private val targetTabState = androidx.compose.runtime.mutableIntStateOf(0)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -56,15 +57,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestTelephonyPermissions()
+        targetTabState.intValue = parseInitialTab(intent?.getStringExtra("EXTRA_TARGET_TAB"))
 
         setContent {
             HyperCarrierTheme {
                 MainAppScaffold(
                     viewModel = viewModel,
-                    initialTab = parseInitialTab(intent?.getStringExtra("EXTRA_TARGET_TAB"))
+                    initialTab = targetTabState.intValue
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        targetTabState.intValue = parseInitialTab(intent.getStringExtra("EXTRA_TARGET_TAB"))
     }
 
     override fun onResume() {

@@ -286,8 +286,28 @@ class CarrierConfigPayloadBuilder {
         bundle.putBoolean(KEY_HIDE_CARRIER_NETWORK_SETTINGS_BOOL, false)
         bundle.putBoolean(KEY_HIDE_ENABLE_2G_BOOL, false)
         bundle.putBoolean(KEY_CARRIER_SETTINGS_ENABLE_BOOL, true)
-        bundle.putBoolean(KEY_SHOW_4G_FOR_LTE_DATA_ICON_BOOL, false) // Show 4G+ / LTE-A
         bundle.putBoolean(KEY_SUPPORT_TDSCDMA_BOOL, false)
+        return this
+    }
+
+    /**
+     * Overrides the carrier display name in the status bar (SPN).
+     */
+    fun setCarrierNameBranding(spnName: String): CarrierConfigPayloadBuilder {
+        if (spnName.isNotBlank()) {
+            bundle.putBoolean("carrier_name_override_bool", true)
+            bundle.putString("carrier_name_string", spnName)
+        }
+        return this
+    }
+
+    /**
+     * Sets custom VoLTE / VoWiFi SIP User-Agent.
+     */
+    fun setUserAgent(userAgent: String): CarrierConfigPayloadBuilder {
+        if (userAgent.isNotBlank()) {
+            bundle.putString("ims.ims_user_agent_string", userAgent)
+        }
         return this
     }
 

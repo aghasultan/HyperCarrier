@@ -98,8 +98,9 @@ fun ConfigEditorScreen(
     var aggressiveSensitivity by remember { mutableStateOf(true) }
     var useRsrpForSignalBar by remember { mutableStateOf(true) }
 
-    // Carrier Branding
+    // Carrier Branding & SIP UA
     var customCarrierName by remember(selectedSub) { mutableStateOf(selectedSub?.carrierName ?: "") }
+    var customUserAgent by remember { mutableStateOf("") }
 
     // Custom Key Dialog / Fields
     var showAddCustomKey by remember { mutableStateOf(false) }
@@ -316,14 +317,26 @@ fun ConfigEditorScreen(
         // Section: Carrier Branding & Name Customization
         item {
             ConfigSectionCard(
-                title = "Carrier Branding & Name Customization",
+                title = "Carrier Branding & SIP User-Agent",
                 icon = Icons.Default.Tune
             ) {
                 OutlinedTextField(
                     value = customCarrierName,
                     onValueChange = { customCarrierName = it },
-                    label = { Text("Carrier Display Name") },
+                    label = { Text("Carrier Display Name (SPN Branding)") },
                     placeholder = { Text("e.g. Zong, Jazz 5G Turbo, HyperCarrier") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = customUserAgent,
+                    onValueChange = { customUserAgent = it },
+                    label = { Text("VoLTE SIP User-Agent") },
+                    placeholder = { Text("e.g. Pixel-9-Pro/TensorG4-VoLTE-IMS") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -436,8 +449,12 @@ fun ConfigEditorScreen(
                         .setGeneralOverrides()
 
                     if (customCarrierName.isNotBlank()) {
-                        builder.putBoolean("carrier_name_override_bool", true)
-                        builder.putString("carrier_name_string", customCarrierName.trim())
+                        builder.setCarrierNameBranding(customCarrierName.trim())
+                        viewModel.setCarrierDisplayName(customCarrierName.trim())
+                    }
+                    if (customUserAgent.isNotBlank()) {
+                        builder.setUserAgent(customUserAgent.trim())
+                        viewModel.setCustomUserAgent(customUserAgent.trim())
                     }
 
                     if (enableTurboCa) {

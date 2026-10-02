@@ -290,4 +290,51 @@ object HyperCarrierEngine {
 
         Result.success(Unit)
     }
+
+    /**
+     * Executes a complete Radio Turbo Flush:
+     * Resets the modem IMS SIP stack and re-provisions VoIMS.
+     */
+    suspend fun executeRadioFlush(subId: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            // Reset modem IMS SIP stack
+            resetIms(subId)
+
+            // Cycle airplane mode momentarily via shell to force complete baseband re-attach
+            try {
+                Runtime.getRuntime().exec("cmd connectivity airplane-mode enable").waitFor()
+                kotlinx.coroutines.delay(1200)
+                Runtime.getRuntime().exec("cmd connectivity airplane-mode disable").waitFor()
+            } catch (_: Throwable) {}
+
+            // Re-provision VoIMS
+            provisionVoIms(subId, true)
+
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Radio flush failed: ${t.message}", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Configures allowed network types (e.g. 5G SA/NSA, 5G SA only, or LTE-A only).
+     */
+    suspend fun setAllowedNetworkMode(context: Context, subId: Int, modeId: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val tm = context.getSystemService(android.telephony.TelephonyManager::class.java).createForSubscriptionId(subId)
+            val bitmask = when (modeId) {
+                1 -> (1L shl 19) // NR (5G SA Only)
+                2 -> (1L shl 19) or (1L shl 13) // NR + LTE (5G NSA + LTE-CA Turbo)
+                3 -> (1L shl 13) // LTE only (Battery saver)
+                else -> (1L shl 19) or (1L shl 13)
+            }
+            val method = tm.javaClass.getMethod("setAllowedNetworkTypesForReason", Int::class.javaPrimitiveType, Long::class.javaPrimitiveType)
+            method.invoke(tm, 0, bitmask)
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to set allowed network mode: ${t.message}")
+            Result.failure(t)
+        }
+    }
 }

@@ -1,5 +1,10 @@
 package dev.hypercarrier.patcher.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +32,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -101,6 +107,8 @@ fun DiagnosticsScreen(
         }
     }
 
+    val context = LocalContext.current
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -108,6 +116,51 @@ fun DiagnosticsScreen(
         contentPadding = PaddingValues(top = 12.dp, bottom = 36.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Field Telemetry Export Card
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(14.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Field Telemetry Export",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Export live 3GPP PHY parameters, CA combos, & IMS state",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            val report = viewModel.exportTelemetryReport()
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            clipboard?.setPrimaryClip(ClipData.newPlainText("HyperCarrier Telemetry", report))
+                            Toast.makeText(context, "Full telemetry report copied to clipboard", Toast.LENGTH_SHORT).show()
+                        },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Export")
+                    }
+                }
+            }
+        }
+
         // Real-time RF Signal Gauge
         item {
             SignalStrengthCard(metrics = signalMetrics)

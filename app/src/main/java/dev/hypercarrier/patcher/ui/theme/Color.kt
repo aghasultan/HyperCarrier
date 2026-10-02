@@ -2,25 +2,34 @@ package dev.hypercarrier.patcher.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Modern Google Pixel / Material 3 Deep Indigo & Teal Palette
-val PixelBluePrimary = Color(0xFF1A73E8)
-val PixelBluePrimaryDark = Color(0xFF8AB4F8)
-val PixelBlueSecondary = Color(0xFF174EA6)
-val PixelBlueSecondaryDark = Color(0xFFAECBFA)
-val PixelTertiary = Color(0xFF12B5CB)
-val PixelTertiaryDark = Color(0xFF78D9EC)
+// Hyper-Elite Cyber-Carrier Palette (2026 Material 3 Expressive)
+val CyberCyan = Color(0xFF00F5FF)
+val NeonEmerald = Color(0xFF00FF85)
+val ElectricViolet = Color(0xFF8B5CF6)
+val CyberAmber = Color(0xFFFFB703)
+val CriticalCoral = Color(0xFFFF3366)
 
-// Status and signal colors
-val SignalExcellent = Color(0xFF34A853)
-val SignalGood = Color(0xFF66BB6A)
-val SignalModerate = Color(0xFFFBBC04)
-val SignalPoor = Color(0xFFEA4335)
+// Dark OLED & Glass Surfaces
+val DarkOledBackground = Color(0xFF070B14)
+val DarkSurface = Color(0xFF0F172A)
+val DarkSurfaceVariant = Color(0xFF1E293B)
+val DarkCardBorder = Color(0xFF334155)
+val SurfaceGlass = Color(0x1AFFFFFF)
+val BorderGlass = Color(0x22FFFFFF)
 
-// Neutral and background surfaces
-val DarkBackground = Color(0xFF121316)
-val DarkSurface = Color(0xFF1B1C20)
-val DarkSurfaceVariant = Color(0xFF26282E)
-val DarkCardBorder = Color(0xFF343842)
+// Standard Pixel Primary & Secondary
+val PixelBluePrimary = Color(0xFF00F5FF)
+val PixelBluePrimaryDark = Color(0xFF00F5FF)
+val PixelBlueSecondary = Color(0xFF8B5CF6)
+val PixelBlueSecondaryDark = Color(0xFF8B5CF6)
+val PixelTertiary = Color(0xFF00FF85)
+val PixelTertiaryDark = Color(0xFF00FF85)
+
+// Status and 3GPP RF Signal Colors
+val SignalExcellent = Color(0xFF00FF85)
+val SignalGood = Color(0xFF10B981)
+val SignalModerate = Color(0xFFFFB703)
+val SignalPoor = Color(0xFFFF3366)
 
 val LightBackground = Color(0xFFF8F9FD)
 val LightSurface = Color(0xFFFFFFFF)

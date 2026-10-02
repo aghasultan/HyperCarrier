@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HyperCarrier</string>
-    <string name="tile_ims_status_label">IMS Status</string>
+    <string name="tile_ims_status_label">IMS Status Radar</string>
     <string name="tile_vonr_label">VoNR 5G Voice</string>
-    <string name="tile_radio_flush_label">Radio Flush</string>
+    <string name="tile_radio_flush_label">Radio Turbo Flush</string>
+    <string name="channel_radioguard_name">RadioGuard Auto-Healer</string>
+    <string name="channel_radioguard_desc">Autonomous cellular watchdog maintaining persistent carrier configurations and IMS registration.</string>
 </resources>

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.telephony.SubscriptionManager
+import dev.hypercarrier.patcher.ipc.HyperCarrierEngine
 import dev.hypercarrier.patcher.ipc.ShizukuBridge
 import dev.hypercarrier.patcher.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -12,7 +13,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Quick Settings Tile displaying live IMS registration status (VoLTE / VoWiFi / VoNR).
+ * Quick Settings Tile displaying live IMS registration status (VoLTE / VoWiFi / VoNR)
+ * queried directly from hardware modem baseband.
  */
 class ImsStatusTileService : TileService() {
 
@@ -46,8 +48,7 @@ class ImsStatusTileService : TileService() {
         }
 
         serviceScope.launch {
-            val imsState = ShizukuBridge.getImsRegistrationState(subId)
-            val isRegistered = imsState == 1
+            val isRegistered = HyperCarrierEngine.isImsRegistered(subId) || ShizukuBridge.getImsRegistrationState(subId) == 1
 
             if (isRegistered) {
                 tile.state = Tile.STATE_ACTIVE
@@ -55,7 +56,7 @@ class ImsStatusTileService : TileService() {
                 tile.subtitle = "VoLTE / VoWiFi Active"
             } else {
                 tile.state = Tile.STATE_INACTIVE
-                tile.label = "IMS: Not Registered"
+                tile.label = "IMS: Unregistered"
                 tile.subtitle = "Tap to Diagnose"
             }
             tile.updateTile()
