@@ -144,7 +144,7 @@ class RadioGuardService : Service() {
         updateNotification("Auto-Healing Radio: Re-asserting CarrierConfig & CA...")
 
         val bundle = CarrierPresets.GLOBAL_ULTRA_UNLOCK.payloadBuilder(subId)
-        ShizukuBridge.applyPersistentConfig(subId, bundle)
+        dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(this, subId, bundle)
         ShizukuBridge.cycleRadioPower(subId)
         ShizukuBridge.flushDnsCache()
 

@@ -24,6 +24,10 @@
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
 
+    <instrumentation
+        android:name="dev.hypercarrier.patcher.ipc.HyperInstrumentation"
+        android:targetPackage="dev.hypercarrier.patcher" />
+
     <application
         android:name=".HyperCarrierApp"
         android:allowBackup="true"

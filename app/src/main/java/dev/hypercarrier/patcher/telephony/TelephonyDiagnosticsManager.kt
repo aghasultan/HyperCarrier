@@ -120,11 +120,41 @@ class TelephonyDiagnosticsManager(
             var isVideo = false
             var transport = "None"
 
-            // Check via Shizuku privileged service if available
+            // Check hardware modem IMS registration state via HyperCarrierEngine
+            val hwImsRegistered = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.isImsRegistered(subId)
+            if (hwImsRegistered) {
+                isRegistered = true
+            }
+
+            // Check via Shizuku privileged service fallback
             val privilegedIms = ShizukuBridge.getImsRegistrationState(subId)
             if (privilegedIms == 1) {
                 isRegistered = true
             }
+
+            // Check CarrierConfig for subId via HyperCarrierEngine
+            try {
+                val config = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.getCarrierConfig(subId)
+                    ?: (context.getSystemService(Context.CARRIER_CONFIG_SERVICE) as? android.telephony.CarrierConfigManager)?.getConfigForSubId(subId)
+                
+                if (config != null) {
+                    if (config.getBoolean("carrier_volte_available_bool", false)) {
+                        isVoLte = true
+                    }
+                    if (config.getBoolean("carrier_wfc_ims_available_bool", false)) {
+                        isVoWifi = true
+                    }
+                    if (config.getBoolean("vonr_enabled_bool", false)) {
+                        isVoNr = true
+                    }
+                    if (config.getBoolean("carrier_vt_available_bool", false)) {
+                        isVideo = true
+                    }
+                    if (config.getBoolean("carrier_supports_ss_over_ut_bool", false)) {
+                        isUt = true
+                    }
+                }
+            } catch (_: Throwable) {}
 
             // Check via ImsMmTelManager if available on API 30+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -135,85 +165,35 @@ class TelephonyDiagnosticsManager(
                         val isAvailableMethod = mmTelManager.javaClass.methods.firstOrNull { it.name == "isAvailable" }
                         if (isAvailableMethod != null) {
                             try {
-                                isVoLte = isAvailableMethod.invoke(
+                                val vLte = isAvailableMethod.invoke(
                                     mmTelManager,
                                     MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
                                     AccessNetworkConstants.TRANSPORT_TYPE_WWAN
                                 ) as? Boolean ?: false
+                                if (vLte) isVoLte = true
                             } catch (_: Throwable) {}
 
                             try {
-                                isVoWifi = isAvailableMethod.invoke(
+                                val vWifi = isAvailableMethod.invoke(
                                     mmTelManager,
                                     MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
                                     AccessNetworkConstants.TRANSPORT_TYPE_WLAN
                                 ) as? Boolean ?: false
+                                if (vWifi) isVoWifi = true
                             } catch (_: Throwable) {}
-
-                            try {
-                                isVideo = isAvailableMethod.invoke(
-                                    mmTelManager,
-                                    MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO,
-                                    AccessNetworkConstants.TRANSPORT_TYPE_WWAN
-                                ) as? Boolean ?: false
-                            } catch (_: Throwable) {}
-
-                            try {
-                                isUt = isAvailableMethod.invoke(
-                                    mmTelManager,
-                                    MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT,
-                                    AccessNetworkConstants.TRANSPORT_TYPE_WWAN
-                                ) as? Boolean ?: false
-                            } catch (_: Throwable) {}
-                        }
-
-                        // Also check user settings states (isAdvancedCallingSettingEnabled / isVoWiFiSettingEnabled)
-                        try {
-                            val isAdvCallingMethod = mmTelManager.javaClass.methods.firstOrNull { it.name == "isAdvancedCallingSettingEnabled" }
-                            val advEnabled = isAdvCallingMethod?.invoke(mmTelManager) as? Boolean ?: false
-                            if (advEnabled) isVoLte = true
-                        } catch (_: Throwable) {}
-
-                        try {
-                            val isWfcMethod = mmTelManager.javaClass.methods.firstOrNull { it.name == "isVoWiFiSettingEnabled" }
-                            val wfcEnabled = isWfcMethod?.invoke(mmTelManager) as? Boolean ?: false
-                            if (wfcEnabled) isVoWifi = true
-                        } catch (_: Throwable) {}
-
-                        if (isVoWifi) {
-                            transport = "Wi-Fi"
-                        } else if (isVoLte || isVoNr) {
-                            transport = "Cellular"
                         }
                     }
-                } catch (t: Throwable) {
-                    Log.d(TAG, "ImsMmTelManager check: ${t.message}")
-                }
+                } catch (_: Throwable) {}
             }
 
-            // Fallback check CarrierConfig for subId
-            try {
-                val ccm = context.getSystemService(Context.CARRIER_CONFIG_SERVICE) as? android.telephony.CarrierConfigManager
-                val config = ccm?.getConfigForSubId(subId)
-                if (config != null) {
-                    if (!isVoLte && config.getBoolean("carrier_volte_available_bool", false)) {
-                        isVoLte = true
-                    }
-                    if (!isVoWifi && config.getBoolean("carrier_wfc_ims_available_bool", false)) {
-                        isVoWifi = true
-                    }
-                    if (!isVoNr && config.getBoolean("vonr_enabled_bool", false)) {
-                        isVoNr = true
-                    }
-                }
-            } catch (_: Throwable) {}
-
-            if (isRegistered && !isVoLte && !isVoWifi) {
-                isVoLte = true
+            if (isVoWifi) {
+                transport = "Wi-Fi"
+            } else if (isVoLte || isVoNr) {
+                transport = "Cellular"
             }
 
             _imsCapabilities.value = ImsCapabilityState(
-                isImsRegistered = isRegistered || isVoLte || isVoWifi,
+                isImsRegistered = isRegistered,
                 isVoLteAvailable = isVoLte,
                 isVoWifiAvailable = isVoWifi,
                 isVoNrAvailable = isVoNr,

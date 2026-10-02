@@ -119,6 +119,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ?: subs.first()
 
             selectSubscription(match)
+
+            // Auto-enable VoIMS (VoLTE opt-in) on active subscriptions
+            subs.forEach { sub ->
+                viewModelScope.launch {
+                    dev.hypercarrier.patcher.ipc.HyperCarrierEngine.provisionVoIms(sub.subscriptionId, true)
+                }
+            }
         } else {
             _selectedSubscription.value = null
             telephonyDiagnosticsManager.stopMonitoring()
@@ -162,12 +169,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _injectionResult.value = InjectionResult.InProgress
             try {
                 val bundle = preset.payloadBuilder(sub.subscriptionId)
-                val result = ShizukuBridge.applyPersistentConfig(sub.subscriptionId, bundle)
-                ShizukuBridge.setImsProvisioning(sub.subscriptionId, enableVoLte = true, enableVoWifi = true, enableVoNr = true)
+                val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                    getApplication(), sub.subscriptionId, bundle
+                )
 
                 if (result.isSuccess) {
                     _injectionResult.value = InjectionResult.Success(
-                        message = "Successfully applied '${preset.name}' with Turbo Aggregation & IMS Core! Overrides persist across reboots.",
+                        message = "Successfully applied '${preset.name}'! IMS Stack Reset & 4G/5G Calling Unlocked.",
                         appliedKeysCount = bundle.size()
                     )
                     loadActiveCarrierConfig(sub.subscriptionId)
@@ -197,12 +205,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
             try {
-                val result = ShizukuBridge.applyPersistentConfig(sub.subscriptionId, bundle)
-                ShizukuBridge.setImsProvisioning(sub.subscriptionId, enableVoLte = true, enableVoWifi = true, enableVoNr = true)
+                val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                    getApplication(), sub.subscriptionId, bundle
+                )
 
                 if (result.isSuccess) {
                     _injectionResult.value = InjectionResult.Success(
-                        message = "Persistent CarrierConfig overrides & IMS provisioning successfully applied!",
+                        message = "CarrierConfig overrides, VoIMS Provisioning & Modem IMS Stack Reset applied!",
                         appliedKeysCount = bundle.size()
                     )
                     loadActiveCarrierConfig(sub.subscriptionId)
@@ -232,7 +241,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
             try {
-                val result = ShizukuBridge.clearConfigOverride(sub.subscriptionId)
+                val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.clearConfig(
+                    getApplication(), sub.subscriptionId
+                )
+                dev.hypercarrier.patcher.ipc.HyperCarrierEngine.resetIms(sub.subscriptionId)
+
                 if (result.isSuccess) {
                     _injectionResult.value = InjectionResult.Success(
                         message = "CarrierConfig overrides cleared. Restored OEM / Carrier defaults.",
@@ -278,11 +291,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sub = _selectedSubscription.value ?: return
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
-            val result = ShizukuBridge.setVoLteEnabled(sub.subscriptionId, enable)
+            val bundle = PersistableBundle().apply {
+                putBoolean(CarrierConfigManager.KEY_CARRIER_VOLTE_AVAILABLE_BOOL, enable)
+                putBoolean(CarrierConfigManager.KEY_EDITABLE_ENHANCED_4G_LTE_BOOL, true)
+                putBoolean(CarrierConfigManager.KEY_ENHANCED_4G_LTE_ON_BY_DEFAULT_BOOL, enable)
+                putBoolean(CarrierConfigManager.KEY_HIDE_ENHANCED_4G_LTE_BOOL, false)
+            }
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                getApplication(), sub.subscriptionId, bundle
+            )
             if (result.isSuccess) {
                 _injectionResult.value = InjectionResult.Success(
                     message = "VoLTE ${if (enable) "Enabled & Provisioned" else "Disabled"}.",
-                    appliedKeysCount = 1
+                    appliedKeysCount = bundle.size()
                 )
                 telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
             } else {
@@ -298,11 +319,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sub = _selectedSubscription.value ?: return
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
-            val result = ShizukuBridge.setVoWifiEnabled(sub.subscriptionId, enable)
+            val bundle = PersistableBundle().apply {
+                putBoolean(CarrierConfigManager.KEY_CARRIER_WFC_IMS_AVAILABLE_BOOL, enable)
+                putBoolean(CarrierConfigManager.KEY_CARRIER_DEFAULT_WFC_IMS_ROAMING_ENABLED_BOOL, enable)
+                putBoolean(CarrierConfigManager.KEY_EDITABLE_WFC_MODE_BOOL, true)
+                putBoolean(CarrierConfigManager.KEY_EDITABLE_WFC_ROAMING_MODE_BOOL, true)
+                putInt(CarrierConfigManager.KEY_WFC_SPN_FORMAT_IDX_INT, 4)
+            }
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                getApplication(), sub.subscriptionId, bundle
+            )
             if (result.isSuccess) {
                 _injectionResult.value = InjectionResult.Success(
                     message = "Wi-Fi Calling ${if (enable) "Enabled & Provisioned" else "Disabled"}.",
-                    appliedKeysCount = 1
+                    appliedKeysCount = bundle.size()
                 )
                 telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
             } else {
@@ -318,11 +348,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sub = _selectedSubscription.value ?: return
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
-            val result = ShizukuBridge.setVoNrEnabled(sub.subscriptionId, enable)
+            val bundle = PersistableBundle().apply {
+                putBoolean(CarrierConfigManager.KEY_VONR_ENABLED_BOOL, enable)
+                putBoolean(CarrierConfigManager.KEY_VONR_SETTING_VISIBILITY_BOOL, true)
+            }
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                getApplication(), sub.subscriptionId, bundle
+            )
             if (result.isSuccess) {
                 _injectionResult.value = InjectionResult.Success(
                     message = "5G VoNR ${if (enable) "Enabled & Provisioned" else "Disabled"}.",
-                    appliedKeysCount = 1
+                    appliedKeysCount = bundle.size()
                 )
                 telephonyDiagnosticsManager.refreshImsCapabilities(sub.subscriptionId)
             } else {
@@ -338,7 +374,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sub = _selectedSubscription.value ?: return
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
-            val result = ShizukuBridge.setViLteEnabled(sub.subscriptionId, enable)
+            val bundle = PersistableBundle().apply {
+                putBoolean(CarrierConfigManager.KEY_CARRIER_VT_AVAILABLE_BOOL, enable)
+            }
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                getApplication(), sub.subscriptionId, bundle
+            )
             if (result.isSuccess) {
                 _injectionResult.value = InjectionResult.Success(
                     message = "ViLTE Video Calling ${if (enable) "Enabled" else "Disabled"}.",
@@ -358,7 +399,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sub = _selectedSubscription.value ?: return
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
-            val result = ShizukuBridge.setVoWifiMode(sub.subscriptionId, mode)
+            val bundle = PersistableBundle().apply {
+                putInt(CarrierConfigManager.KEY_CARRIER_DEFAULT_WFC_IMS_MODE_INT, mode)
+                putInt(CarrierConfigManager.KEY_CARRIER_DEFAULT_WFC_IMS_ROAMING_MODE_INT, mode)
+            }
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.applyFullCarrierProfile(
+                getApplication(), sub.subscriptionId, bundle
+            )
             if (result.isSuccess) {
                 _injectionResult.value = InjectionResult.Success(
                     message = "Wi-Fi Calling Mode updated to: ${if (mode == 1) "Wi-Fi Preferred" else "Cellular Preferred"}.",
@@ -377,10 +424,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sub = _selectedSubscription.value ?: return
         viewModelScope.launch {
             _injectionResult.value = InjectionResult.InProgress
-            val result = ShizukuBridge.forceReRegisterIms(sub.subscriptionId)
+            val result = dev.hypercarrier.patcher.ipc.HyperCarrierEngine.resetIms(sub.subscriptionId)
+            dev.hypercarrier.patcher.ipc.HyperCarrierEngine.provisionVoIms(sub.subscriptionId, true)
             if (result.isSuccess) {
                 _injectionResult.value = InjectionResult.Success(
-                    message = "IMS Re-Registration trigger dispatched to modem.",
+                    message = "Modem IMS Stack Reset dispatched & VoIMS re-provisioned.",
                     appliedKeysCount = 1
                 )
                 kotlinx.coroutines.delay(1500)

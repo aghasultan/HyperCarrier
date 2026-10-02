@@ -98,6 +98,9 @@ fun ConfigEditorScreen(
     var aggressiveSensitivity by remember { mutableStateOf(true) }
     var useRsrpForSignalBar by remember { mutableStateOf(true) }
 
+    // Carrier Branding
+    var customCarrierName by remember(selectedSub) { mutableStateOf(selectedSub?.carrierName ?: "") }
+
     // Custom Key Dialog / Fields
     var showAddCustomKey by remember { mutableStateOf(false) }
     var customKeyName by remember { mutableStateOf("") }
@@ -310,6 +313,24 @@ fun ConfigEditorScreen(
             }
         }
 
+        // Section: Carrier Branding & Name Customization
+        item {
+            ConfigSectionCard(
+                title = "Carrier Branding & Name Customization",
+                icon = Icons.Default.Tune
+            ) {
+                OutlinedTextField(
+                    value = customCarrierName,
+                    onValueChange = { customCarrierName = it },
+                    label = { Text("Carrier Display Name") },
+                    placeholder = { Text("e.g. Zong, Jazz 5G Turbo, HyperCarrier") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+            }
+        }
+
         // Section 5: Custom Key Injection
         item {
             Card(
@@ -413,6 +434,11 @@ fun ConfigEditorScreen(
                         )
                         .enableSignalEnhancements(useRsrpForLteBars = useRsrpForSignalBar)
                         .setGeneralOverrides()
+
+                    if (customCarrierName.isNotBlank()) {
+                        builder.putBoolean("carrier_name_override_bool", true)
+                        builder.putString("carrier_name_string", customCarrierName.trim())
+                    }
 
                     if (enableTurboCa) {
                         builder.enableTurboAggregation()
